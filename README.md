@@ -38,7 +38,14 @@ open 'http://127.0.0.1:8000/graph/foo'
 open 'http://127.0.0.1:8000/graph/bar'
 open 'http://127.0.0.1:8000/graph/foo?periods=1000&freq=m'
 open 'http://127.0.0.1:8000/graph/foo?periods=800&freq=h'
+
+# or open a shipped test model
+open 'http://127.0.0.1:8000/graph/test'
 ```
+
+sample output of the last call:
+<!-- curl http://127.0.0.1:8000/graph/test -o ./test-graph.png -->
+![test-graph](./test-graph.png "Future predictions")
 
 ### Insert More Data for a Model
 ```bash
