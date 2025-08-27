@@ -1,11 +1,12 @@
 # main.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi.responses import RedirectResponse, StreamingResponse
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
-from .forecast_utils import generate_forecast
-from .feed_sql import feed
+from .forecast_utils import generate_forecast, generate_graph_bytes
+from .db_utils import feed_db, retrain_and_save, insert
 
 app = FastAPI()
 
@@ -13,12 +14,10 @@ app = FastAPI()
 class ForecastRequest(BaseModel):
     start_date: str  # e.g., "2024-04-01 00:00:00"
     periods: int     # Number of future hours to predict
-    name: str        # name of the metric
 
 class MetricStoreRequest(BaseModel):
     date: str      # e.g., "2024-04-01 00:00:00"
     value: float   # Measured value
-    name: str      # name of the metric
 
 # Output schemas
 class ForecastPoint(BaseModel):
@@ -28,10 +27,14 @@ class ForecastPoint(BaseModel):
 class ForecastResponse(BaseModel):
     forecast: List[ForecastPoint]
 
-@app.post("/predict", response_model=ForecastResponse)
-def predict(request: ForecastRequest):
+@app.get("/", include_in_schema=False)
+def docs_redirect():
+    return RedirectResponse(url='/docs')
+
+@app.post("/predict/{model}", response_model=ForecastResponse)
+def predict(model, request: ForecastRequest):
     try:
-        forecast_df = generate_forecast(request.start_date, request.periods, request.name)
+        forecast_df = generate_forecast(request.start_date, request.periods, model)
         response = [
             ForecastPoint(
                 ds=row.ds.strftime("%Y-%m-%d %H:%M:%S"),
@@ -42,18 +45,47 @@ def predict(request: ForecastRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/retrain")
-def fit():
+@app.get("/retrain/{model}")
+def retrain(model):
     try:
-        feed()
+        retrain_and_save(model)
         return {"message": "Models have been retrained to fit the data in the db"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/feed")
-def predict(request: MetricStoreRequest):
+@app.post("/feed/{model}")
+def feed_measurement(model, request: MetricStoreRequest):
     try:
-        # todo: store to sql db
-        return {"message": "Metric has been stored"}
+        insert(model, request.date, request.value)
+        return {"message": f"Measurement was stored in the db for model {model}"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/feed/{model}/testData")
+def feed_test_data(model,days=14, daysTrendFactor=1.1, offHoursFactor=0, jitter=.05):
+    try:
+        feed_db(
+            model=model,
+            days=days,
+            days_trend_factor=daysTrendFactor,
+            off_hours_factor=offHoursFactor,
+            jitter=jitter
+        )
+        return {"message": f"Sample metrics were created in the db for model {model}"}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get(
+    "/graph/{model}",
+    responses={
+        200: {
+            "content": {"image/png": {}},
+        }
+    }
+)
+def graph(model, freq: str = "h", periods: int = 600):
+    try:
+        image_bytes = generate_graph_bytes('2025-03-02 02:00:00', periods, model, freq)
+        return StreamingResponse(image_bytes, media_type="image/png")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e) + ". Make sure you call the /feed and /retrain endpoints first")
