@@ -1,7 +1,28 @@
-FROM python:3.10-slim
-WORKDIR /app
+ARG GIT_COMMIT="main"
+ARG VERSION="main"
 
-COPY . .
-RUN pip install --no-cache-dir -r requirements.txt
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
-# todo: builder img
+FROM --platform=$TARGETARCH cgr.dev/chainguard/python:latest-dev AS dev
+WORKDIR /app
+RUN python -m venv venv
+RUN touch /app/empty
+ENV PATH="/app/venv/bin":$PATH
+COPY requirements.txt requirements.txt
+RUN pip3 install -r requirements.txt
+
+
+FROM --platform=$TARGETARCH cgr.dev/chainguard/python:latest
+ARG GIT_COMMIT
+ARG VERSION
+WORKDIR /app
+COPY app /app/app
+COPY --from=dev /app/venv /app/venv
+COPY model /app/model
+ENV PATH="/app/venv/bin:$PATH" \
+    UVICORN_PORT="8000" \
+    MODELS_PATH="/app/model" \
+    DB_FILE="/app/data/db.sqlite" \
+    GIT_COMMIT=${GIT_COMMIT} \
+    VERSION=${GIT_COMMIT}
+COPY --from=dev /app/empty $DB_FILE
+EXPOSE 8000/tcp
+ENTRYPOINT ["uvicorn", "app.main:app", "--host", "0.0.0.0"]

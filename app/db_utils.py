@@ -6,14 +6,22 @@ import pickle
 import os
 import sys
 from numpy import random
+from .model_utils import train_and_save, delete_serialized_model
+
+db_file = os.getenv("DB_FILE", "data/db.sqlite")
 
 insert_measurement = ''' INSERT INTO metrics(name,timestamp,value)
               VALUES(?,?,?) '''
 
+delete_measurements = ''' DELETE FROM metrics WHERE name = ? '''
+
 # select_measurements = ''' SELECT * FROM metrics WHERE name = (?) '''
 
-tables = [ 
-    """DROP TABLE IF EXISTS metrics;""", # todo: remove
+drop_tables = [ 
+    """DROP TABLE IF EXISTS metrics;""",
+]
+
+create_tables = [ 
     """CREATE TABLE IF NOT EXISTS metrics (
             timestamp DATE NOT NULL, 
             name TEST NOT NULL,
@@ -21,21 +29,26 @@ tables = [
         );"""
 ]
 
-# Load data
-
 def retrain_and_save(model):
-    with sqlite3.connect("data/db.sqlite") as con:
+    with sqlite3.connect(db_file) as con:
         cur = con.cursor()
         df = pd.read_sql_query(f"SELECT * FROM metrics WHERE name = '{model}' ", con)
         df = df.rename(columns={"timestamp": "ds", "value": "y"})
         train_and_save(model, df)
 
+def reset_database():
+    with sqlite3.connect(db_file) as con:
+        cur = con.cursor()
+        for statement in drop_tables + create_tables:
+            cur.execute(statement)
+        print("\n✅ Tables dropped successfully.")
+
 def feed_db(model, days, days_trend_factor, off_hours_factor, jitter):
-    with sqlite3.connect("data/db.sqlite") as con:
+    with sqlite3.connect(db_file) as con:
         cur = con.cursor()
 
         # execute statements (DDL)
-        for statement in tables:
+        for statement in create_tables:
             cur.execute(statement)
         print("\n✅ Tables created successfully.")
         
@@ -75,26 +88,18 @@ def prepare_samples(cur, days, days_trend_factor, off_hours_factor, value_fun, j
     print(" records were inserted into db.")
 
 def insert(name, time, value):
-    with sqlite3.connect("data/db.sqlite") as con:
+    with sqlite3.connect(db_file) as con:
         cur = con.cursor()
         insert_sample(cur, name, time, value)
 
+def delete(name):
+    with sqlite3.connect(db_file) as con:
+        cur = con.cursor()
+        cur.execute(delete_measurements, (name,))
+        con.commit()
+    delete_serialized_model(name)
+
 def insert_sample(cur, name, time, value):
     cur.execute(insert_measurement, (name, time, value))
-
-def train_and_save(model_name, df):
-    # Train model
-    model = Prophet(changepoint_prior_scale=0.01)
-    model.fit(df)
-
-    # Save model
-    os.makedirs("model", exist_ok=True)
-    with open(f"model/prophet-{model_name}.pkl", "wb") as f:
-        pickle.dump(model, f)
-    # with open("model/prophet.json", "w") as fjson:
-    #     fjson.write(model_to_json(model))
-
-    print(f"✅ Model trained and saved to model/prophet-{model_name}.pkl")
-    # print("✅ Model trained and saved to model/prophet.json")
 
 # feed_db()

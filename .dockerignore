@@ -1,0 +1,3 @@
+/model/*
+!/model/prophet-test.pkl
+

@@ -1,0 +1,72 @@
+###############################
+#		CONSTANTS
+###############################
+VERSION 	?= main
+GIT_COMMIT  ?= $(shell git rev-list -1 HEAD)
+CONTAINER_IMAGE ?= ghcr.io/kedify/keda-prophet
+DEV_LOG_LVL ?= info
+# DEV_LOG_LVL ?= trace
+ARCH ?= $(shell uname -m)
+ifeq ($(ARCH), x86_64)
+	ARCH=amd64
+endif
+
+
+###############################
+#		TARGETS
+###############################
+all: help
+
+##@ Build
+
+.PHONY: build-image
+build-image: ## Builds the container image for current arch.
+	@$(call say,Build container image $(CONTAINER_IMAGE))
+	docker build . -t $(CONTAINER_IMAGE):$(VERSION) --build-arg VERSION=$(VERSION) --build-arg GIT_COMMIT=$(GIT_COMMIT)
+
+.PHONY: build-image-multiarch
+build-image-multiarch: ## Builds the container image for amd and arm arch.
+	@$(call say,Build container image $(CONTAINER_IMAGE))
+	docker buildx build . --push --platform linux/amd64,linux/arm64 -t $(CONTAINER_IMAGE):$(VERSION) --build-arg VERSION=$(VERSION) --build-arg GIT_COMMIT=$(GIT_COMMIT)
+
+##@ General
+.PHONY: run-dev
+run-dev: ## Runs the REST api
+	@$(call say,Starting REST api)
+	python3 -m venv venv && \
+	source venv/bin/activate && \
+	python3 -m uvicorn app.main:app --log-level $(DEV_LOG_LVL) --reload
+
+.PHONY: run-image
+run-image: ## Runs the REST api from ghcr.io/kedify/keda-prophet:main container image
+	@$(call say,Starting REST api)
+	docker run -ti -p8000:8000 $(CONTAINER_IMAGE):$(VERSION)
+
+.PHONY: check-model
+check-model: ## Prepares a model and open its graph with predictions
+	@$(call say,Demoing the a model)
+	@$(call say,Feeding the DB with sample data..)
+	curl http://127.0.0.1:8000/model/foo/testData
+	@$(call say,Fitting the model to the data - training)
+	curl http://127.0.0.1:8000/model/foo/retrain
+	@$(call say,Opening the graph with predictions)
+	open 'http://127.0.0.1:8000/model/foo/graph?periods=1000'
+
+.PHONY: help
+help: ## Display this help.
+	@awk 'BEGIN {FS = ":.*##"; printf "\nUsage:\n  make \033[36m<target>\033[0m\n"} /^[a-zA-Z_0-9-]+:.*?##/ { printf "  \033[36m%-24s\033[0m %s\n", $$1, $$2 } /^##@/ { printf "\n\033[1m%s\033[0m\n", substr($$0, 5) } ' $(MAKEFILE_LIST)
+
+
+###############################
+#		HELPERS
+###############################
+
+ifndef NO_COLOR
+YELLOW=\033[0;33m
+# no color
+NC=\033[0m
+endif
+
+define say
+echo "\n$(shell echo "$1  " | sed s/./=/g)\n $(YELLOW)$1$(NC)\n$(shell echo "$1  " | sed s/./=/g)"
+endef
