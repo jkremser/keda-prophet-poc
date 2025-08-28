@@ -42,6 +42,12 @@ run-image: ## Runs the REST api from ghcr.io/kedify/keda-prophet:main container 
 	@$(call say,Starting REST api)
 	docker run -ti -p8000:8000 $(CONTAINER_IMAGE):$(VERSION)
 
+.PHONY: deploy-k8s
+deploy-k8s: ## Deploys the KEDA Prophet to current k8s context
+	@$(call say,Deploying to k8s)
+	kubectl apply -f k8s/deployment.yaml
+	@echo "\ncontinue with: \nkubectl port-forward svc/keda-prophet 8000:8000\nmake check-model"
+
 .PHONY: check-model
 check-model: ## Prepares a model and open its graph with predictions
 	@$(call say,Demoing the a model)

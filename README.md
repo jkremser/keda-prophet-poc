@@ -1,3 +1,7 @@
+# KEDA Prophet
+
+This projects runs a simple REST API to interface with the Prophet models. It makes it possible to run  multiple Prophet models simultaneously and retrain them on the new data. Internally, it uses SQLite database stored as a file with single table called `metrics`. Each row also contains the name of the metric so that models can be retrained only on their own data.
+
 ##  How to Run Locally
 
 ###  Set Up Virtual Environment
@@ -14,9 +18,7 @@ pip3 install -r requirements.txt
 python3 -m uvicorn app.main:app --reload
 ```
 
-Navigate to:
-📍 http://127.0.0.1:8000
-
+Navigate to: http://127.0.0.1:8000
 
 ### Insert Sample Data
 ```bash
@@ -96,6 +98,20 @@ curl http://127.0.0.1:8000/resetDb
 ```bash
 # delete model called foo (removes its data from DB and its serialized Prophet model from fs)
 curl -X DELETE http://127.0.0.1:8000/model/foo
+```
+
+##  How to Run on Kubernetes
+
+```bash
+# this will deploy the k8s manifest from k8s/deployment.yaml (2 PVCs, Deployment and Service)
+make deploy-k8s
+```
+
+### Container images
+
+```bash
+make build-image
+make build-image-multiarch
 ```
 
 ## Dev

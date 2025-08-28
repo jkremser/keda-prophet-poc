@@ -1,6 +1,8 @@
 import io
 import os
 import pandas as pd
+import logging
+logging.getLogger("prophet.plot").disabled = True
 from prophet import Prophet
 import pickle
 from prophet.serialize import model_to_json, model_from_json

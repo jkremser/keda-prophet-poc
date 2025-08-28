@@ -111,6 +111,7 @@ def graph(model, freq: str = "h", periods: int = 600):
 
 def init():
     logger.info("KEDA Prophet API is starting up")
+    logger.info("-------------------------------")
     logger.info(f"Version: {os.getenv("VERSION", "main")}")
     logger.info(f"Git Sha: {os.getenv("GIT_SHA", "main")}")
 

@@ -1,0 +1,78 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: keda-prophet
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: keda-prophet
+  template:
+    metadata:
+      labels:
+        app: keda-prophet
+    spec:
+      containers:
+        - name: keda-prophet
+          image: ghcr.io/kedify/keda-prophet:main
+          ports:
+            - containerPort: 8000
+          env:
+            - name: DB_FILE
+              value: /data/db.sqlite
+            - name: MODELS_PATH
+              value: /models
+          resources:
+            limits:
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            # readOnlyRootFilesystem: true
+          volumeMounts:
+            - name: sqlite
+              mountPath: /data
+            - name: models
+              mountPath: /models
+      volumes:
+        - name: sqlite
+          persistentVolumeClaim:
+            claimName: prophet-sqlite
+        - name: models
+          persistentVolumeClaim:
+            claimName: prophet-models
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prophet-models
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: prophet-sqlite
+spec:
+  accessModes:
+  - ReadWriteOnce
+  resources:
+    requests:
+      storage: 500Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: keda-prophet
+spec:
+  ports:
+    - port: 8000
+      name: http
+  selector:
+    app: keda-prophet
