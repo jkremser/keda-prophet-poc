@@ -1,0 +1,43 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: retrainer
+  namespace: default
+spec:
+            # schedule manually by: k create job --from=cronjob/retrainer retrainer
+            # ┌───────────── minute (0 - 59)
+            # │  ┌───────────── hour (0 - 23)
+            # │  │  ┌───────────── day of the month (1 - 31)
+            # │  │  │ ┌───────────── month (1 - 12)
+            # │  │  │ │ ┌───────────── day of the week (0 - 6) (Sunday to Saturday)
+            # │  │  │ │ │                                   OR sun, mon, tue, wed, thu, fri, sat
+            # │  │  │ │ │
+            # │  │  │ │ │
+            # *  *  * * *
+  schedule: "*  */2  * * *"
+  failedJobsHistoryLimit: 0
+  jobTemplate:
+    metadata:
+      namespace: default
+    spec:
+      ttlSecondsAfterFinished: 120
+      backoffLimit: 1
+      template:
+        spec:
+          containers:
+          - name: retrainer
+            image: nixery.dev/shell/curl/jq
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "10m"
+              limits:
+                memory: "128Mi"
+                cpu: "100m"
+            imagePullPolicy: IfNotPresent
+            command:
+            - /bin/bash
+            - -ce
+            - |
+              curl -s http://keda-prophet.default.svc:8000/model/minutemetrics/retrain
+          restartPolicy: Never

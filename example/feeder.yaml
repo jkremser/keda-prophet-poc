@@ -1,0 +1,49 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: feeder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: feeder
+  template:
+    metadata:
+      labels:
+        app: feeder
+    spec:
+      containers:
+      - name: feeder
+        image: nixery.dev/shell/curl/jq
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "10m"
+          limits:
+            memory: "128Mi"
+            cpu: "100m"
+        command:
+          - sh
+        args:
+          - -c
+          - |
+            set -o nounset
+            #set -x
+            _sec=30
+            while true; do
+              value=$(curl -s http://minute-metrics.default.svc/api/v1/minutemetrics | jq '.value')
+              if [ $? -eq 0 ]; then
+                time=$(date -u +"%Y-%m-%d %H:%M:%S")
+                echo "At ${time} got: ${value}"
+                curl -s -X POST http://keda-prophet.default.svc:8000/model/minutemetrics \
+                  -H "Content-Type: application/json" \
+                  -d "{
+                    \"date\": \"${time}\",
+                    \"value\": ${value}
+                  }";
+              fi
+              echo -e "\nWaiting ${_sec} seconds.."
+              sleep ${_sec}
+            done
+            exit 1
+---
