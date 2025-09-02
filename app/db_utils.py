@@ -92,7 +92,7 @@ def feed_db(model, days, days_trend_factor, off_hours_factor, jitter):
         cur = con.cursor()
 
         # execute statements (DDL)
-        for statement in create_tables:
+        for statement in create_tables_q:
             cur.execute(statement)
         print("\n✅ Tables created successfully.")
         
@@ -157,7 +157,7 @@ def get_model(name):
     with sqlite3.connect(db_file) as con:
         cur = con.cursor()
         cur.execute(get_model_q, (name,))
-        rows = cur.fetchall()
+        rows = cur.fetchone()
         return rows
 
 def list():

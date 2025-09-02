@@ -41,7 +41,8 @@ spec:
             - |
               set -o nounset
               #set -x
-              for svc in 15m 30m 60m 120m; do
-                curl -s http://keda-prophet.default.svc:8000/model/minute-metrics-${svc}/retrain
+              for svc in 15m 30m 60m 120m sum-all sum-some; do
+                curl -s http://keda-prophet.default.svc:8000/models/minute-metrics-${svc}/retrain
+                echo -e "\nModel: minute-metrics-${svc}"
               done
           restartPolicy: Never

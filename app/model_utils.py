@@ -1,12 +1,14 @@
 import io
 import os
+import os.path
 import pandas as pd
 import logging
 logging.getLogger("prophet.plot").disabled = True
 from prophet import Prophet
+from pydantic import BaseModel
 import pickle
 from prophet.serialize import model_to_json, model_from_json
-from datetime import datetime, timedelta
+from datetime import datetime
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -55,11 +57,14 @@ def generate_graph_bytes(start_date: str, periods: int, name: str, freq: str) ->
         return img_buf
 
 def delete_serialized_model(model_name):
-    os.remove(f"{models_path}/prophet-{model_name}.pkl")
-    print(f"✅ Model {models_path}/prophet-{model_name}.pkl was deleted")
+    p = os.path.abspath(f"{models_path}/prophet-{model_name}.pkl")
+    os.remove(p)
+    print(f"✅ Model {p} was deleted")
 
 def train_and_save(model_name, params, df):
-    parsed_params = parseModelParams(params)
+    parsed_params: ModelParams = parseModelParams(params)
+    print(f"Training model {model_name} using following model params:")
+    print(parsed_params)
     model = Prophet(
         changepoint_prior_scale=0.01,
         yearly_seasonality=parsed_params.yearly_seasonality,
@@ -74,31 +79,37 @@ def train_and_save(model_name, params, df):
     model.fit(df)
 
     # Save model
-    print(models_path)
     os.makedirs(models_path, exist_ok=True)
-    with open(f"{models_path}/prophet-{model_name}.pkl", "wb") as f:
+    p = os.path.abspath(f"{models_path}/prophet-{model_name}.pkl")
+    with open(p, "wb") as f:
         pickle.dump(model, f)
     # with open("model/prophet.json", "w") as fjson:
     #     fjson.write(model_to_json(model))
 
-    print(f"✅ Model trained and saved to {models_path}/prophet-{model_name}.pkl")
+    print(f"✅ Model trained and saved to {p}")
+    print(f"Size on disk: {human_readable_size(os.path.getsize(p))}")
     # print("✅ Model trained and saved to model/prophet.json")
 
-class ModelParams():
+class ModelParams(BaseModel):
     yearly_seasonality: str | bool | int
     weekly_seasonality: str | bool | int
     daily_seasonality: str | bool | int
     seasonality_mode: str
     has_custom_seasonality: bool
-
+    custom_seasonality_period: float
+    custom_seasonality_fourier_order: int
 
 def parseModelParams(params):
-    ModelParams(
+    if params == None:
+        return get_default_model_params()
+    return ModelParams(
         yearly_seasonality=parseSeasonality(params[0]),
         weekly_seasonality=parseSeasonality(params[1]),
         daily_seasonality=parseSeasonality(params[2]),
         seasonality_mode=params[5],
-        has_custom_seasonality=params[3] > 0 and params[4] > 0
+        has_custom_seasonality=params[3] > 0 and params[4] > 0,
+        custom_seasonality_period=params[3],
+        custom_seasonality_fourier_order=params[4],
     )
 
 def parseSeasonality(seasonality):
@@ -111,3 +122,21 @@ def parseSeasonality(seasonality):
             return "auto"
         case _:
             return seasonality
+
+def get_default_model_params():
+    return ModelParams(
+        yearly_seasonality=False,
+        weekly_seasonality=True,
+        daily_seasonality=True,
+        seasonality_mode="additive",
+        has_custom_seasonality=True,
+        custom_seasonality_period=0.04167,
+        custom_seasonality_fourier_order=4,
+    )
+
+def human_readable_size(size, decimal_places=2):
+    for unit in ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']:
+        if size < 1024.0 or unit == 'PiB':
+            break
+        size /= 1024.0
+    return f"{size:.{decimal_places}f} {unit}"

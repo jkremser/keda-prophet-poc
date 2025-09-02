@@ -52,11 +52,11 @@ deploy-k8s: ## Deploys the KEDA Prophet to current k8s context
 check-model: ## Prepares a model and open its graph with predictions
 	@$(call say,Demoing the a model)
 	@$(call say,Feeding the DB with sample data..)
-	curl http://127.0.0.1:8000/model/foo/testData
+	curl http://127.0.0.1:8000/models/foo/testData
 	@$(call say,Fitting the model to the data - training)
-	curl http://127.0.0.1:8000/model/foo/retrain
+	curl http://127.0.0.1:8000/models/foo/retrain
 	@$(call say,Opening the graph with predictions)
-	open 'http://127.0.0.1:8000/model/foo/graph?periods=1000'
+	open 'http://127.0.0.1:8000/models/foo/graph?periods=200&hoursAgo=120'
 
 .PHONY: help
 help: ## Display this help.

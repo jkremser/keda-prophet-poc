@@ -8,7 +8,7 @@ import traceback
 from pydantic import BaseModel
 from typing import List
 import pandas as pd
-from datetime import datetime
+from datetime import datetime, timedelta
 from .model_utils import generate_forecast, generate_graph_bytes
 from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list, delete, reset_database
 
@@ -77,7 +77,7 @@ def predict(model, request: ForecastRequest):
 def retrain(model):
     try:
         retrain_and_save(model)
-        return {"message": "Models have been retrained to fit the data in the db"}
+        return {"message": f"Model {model} have been retrained to fit the data in the db"}
     except Exception as e:
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
@@ -144,14 +144,17 @@ def feed_test_data(model,days=14, daysTrendFactor=1.1, offHoursFactor=0, jitter=
         }
     }
 )
-def graph(model, freq: str = "h", periods: int = 600):
+def graph(model, hoursAgo: int = 0, freq: str = "h", periods: int = 600):
     try:
-        now = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        image_bytes = generate_graph_bytes(now, periods, model, freq)
+        if hoursAgo > 0:
+            startTime = (datetime.today() - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            startTime = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        image_bytes = generate_graph_bytes(startTime, periods, model, freq)
         return StreamingResponse(image_bytes, media_type="image/png")
     except Exception as e:
         print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e) + ". Make sure you call the /feed and /retrain endpoints first")
+        raise HTTPException(status_code=500, detail=str(e) + ". Make sure you call the /metrics and /retrain endpoints first")
 
 def init():
     logger.info("KEDA Prophet API is starting up")

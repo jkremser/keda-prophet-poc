@@ -17,7 +17,7 @@ spec:
         image: nixery.dev/shell/curl/jq/bc
         env:
           - name: FRESH_START
-            value: "true"
+            value: "false"
         resources:
           requests:
             memory: "64Mi"
@@ -51,7 +51,7 @@ spec:
                     _sumAll=$(echo "$_sumAll + $value" | bc)
                     [[ "${svc}" = "15m" || "${svc}" = "120m" ]] && _sumSome=$(echo "$_sumSome + $value" | bc)
                     echo -e "\n - At ${time} for minute-metrics-${svc} got: ${value}"
-                    curl -s -X POST http://keda-prophet.default.svc:8000/model/minute-metrics-${svc} \
+                    curl -s -X POST http://keda-prophet.default.svc:8000/models/minute-metrics-${svc}/metrics \
                       -H "Content-Type: application/json" \
                       -d "{
                         \"date\": \"${time}\",
@@ -62,14 +62,14 @@ spec:
                   fi
                 done
                 echo -e "\n - At ${time} for minute-metrics-sum-all got: ${_sumAll}"
-                curl -s -X POST http://keda-prophet.default.svc:8000/model/minute-metrics-sum-all \
+                curl -s -X POST http://keda-prophet.default.svc:8000/models/minute-metrics-sum-all/metrics \
                       -H "Content-Type: application/json" \
                       -d "{
                         \"date\": \"${time}\",
                         \"value\": ${_sumAll}
                       }" | jq '.message'
                 echo -e "\n - At ${time} for minute-metrics-sum-some (15m + 120m) got: ${_sumSome}"
-                curl -s -X POST http://keda-prophet.default.svc:8000/model/minute-metrics-sum-some \
+                curl -s -X POST http://keda-prophet.default.svc:8000/models/minute-metrics-sum-some/metrics \
                       -H "Content-Type: application/json" \
                       -d "{
                         \"date\": \"${time}\",
