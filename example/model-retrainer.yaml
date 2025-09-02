@@ -39,5 +39,9 @@ spec:
             - /bin/bash
             - -ce
             - |
-              curl -s http://keda-prophet.default.svc:8000/model/minutemetrics/retrain
+              set -o nounset
+              #set -x
+              for svc in 15m 30m 60m 120m; do
+                curl -s http://keda-prophet.default.svc:8000/model/minute-metrics-${svc}/retrain
+              done
           restartPolicy: Never

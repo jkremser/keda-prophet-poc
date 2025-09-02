@@ -58,9 +58,19 @@ def delete_serialized_model(model_name):
     os.remove(f"{models_path}/prophet-{model_name}.pkl")
     print(f"✅ Model {models_path}/prophet-{model_name}.pkl was deleted")
 
-def train_and_save(model_name, df):
+def train_and_save(model_name, params, df):
+    parsed_params = parseModelParams(params)
+    model = Prophet(
+        changepoint_prior_scale=0.01,
+        yearly_seasonality=parsed_params.yearly_seasonality,
+        weekly_seasonality=parsed_params.weekly_seasonality,
+        daily_seasonality=parsed_params.daily_seasonality,
+        seasonality_mode=parsed_params.seasonality_mode,
+    )
+    
+    if parsed_params.has_custom_seasonality:
+        model.add_seasonality(name='custom', period=parsed_params.custom_seasonality_period, fourier_order=parsed_params.custom_seasonality_fourier_order)
     # Train model
-    model = Prophet(changepoint_prior_scale=0.01)
     model.fit(df)
 
     # Save model
@@ -73,3 +83,31 @@ def train_and_save(model_name, df):
 
     print(f"✅ Model trained and saved to {models_path}/prophet-{model_name}.pkl")
     # print("✅ Model trained and saved to model/prophet.json")
+
+class ModelParams():
+    yearly_seasonality: str | bool | int
+    weekly_seasonality: str | bool | int
+    daily_seasonality: str | bool | int
+    seasonality_mode: str
+    has_custom_seasonality: bool
+
+
+def parseModelParams(params):
+    ModelParams(
+        yearly_seasonality=parseSeasonality(params[0]),
+        weekly_seasonality=parseSeasonality(params[1]),
+        daily_seasonality=parseSeasonality(params[2]),
+        seasonality_mode=params[5],
+        has_custom_seasonality=params[3] > 0 and params[4] > 0
+    )
+
+def parseSeasonality(seasonality):
+    match seasonality:
+        case "False":
+            return False
+        case "True":
+            return True
+        case "auto":
+            return "auto"
+        case _:
+            return seasonality

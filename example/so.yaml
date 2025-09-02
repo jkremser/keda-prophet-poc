@@ -19,6 +19,6 @@ spec:
   triggers:
   - type: metrics-api
     metadata:
-      url: "http://minute-metrics.default.svc.cluster.local/api/v1/minutemetrics"
+      url: "http://minute-metrics-15m.default.svc.cluster.local/api/v1/minutemetrics"
       valueLocation: "value"
       targetValue: '1'

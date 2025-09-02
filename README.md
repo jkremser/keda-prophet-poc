@@ -20,29 +20,44 @@ python3 -m uvicorn app.main:app --reload
 
 Navigate to: http://127.0.0.1:8000
 
-### Insert Sample Data
+### Create model & Insert Sample Data (only for demos)
 ```bash
 # bootstrap model called foo w/ some sample data
-curl 'http://127.0.0.1:8000/model/foo/testData'
+curl 'http://127.0.0.1:8000/models/foo/testData'
 # bootstrap model called bar w/ some sample data
-curl 'http://127.0.0.1:8000/model/bar/testData?days=20&daysTrendFactor=1.2&offHoursFactor=.3&jitter=.1'
+curl 'http://127.0.0.1:8000/models/bar/testData?days=20&daysTrendFactor=1.2&offHoursFactor=.3&jitter=.1'
+```
+
+### Create or Update Model (the proper way)
+```bash
+# this creates a Prophet model with non-default settings, overriding the `weekly_seasonality` and adding one custom seasonality
+hourlyInDays=$(echo "scale=4;1/24" | bc -l | awk '{printf "%.4f\n", $0}')
+curl -X POST \
+  http://127.0.0.1:8000/models \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "foo",
+    "weekly_seasonality": "False",
+    "custom_seasonality_period": '${hourlyInDays}',
+    "custom_seasonality_fourier_order": 3
+  }';
 ```
 
 ### Train Models to Fit the Data
 ```bash
-curl http://127.0.0.1:8000/model/foo/retrain
-curl http://127.0.0.1:8000/model/bar/retrain
+curl http://127.0.0.1:8000/models/foo/retrain
+curl http://127.0.0.1:8000/models/bar/retrain
 ```
 
 ### Visualize the Future Prediction as Graph
 ```bash
-open 'http://127.0.0.1:8000/model/foo/graph'
-open 'http://127.0.0.1:8000/model/bar/graph'
-open 'http://127.0.0.1:8000/model/foo/graph?periods=1000&freq=m'
-open 'http://127.0.0.1:8000/model/foo/graph?periods=800&freq=h'
+open 'http://127.0.0.1:8000/models/foo/graph'
+open 'http://127.0.0.1:8000/models/bar/graph'
+open 'http://127.0.0.1:8000/models/foo/graph?periods=1000&freq=m'
+open 'http://127.0.0.1:8000/models/foo/graph?periods=800&freq=h'
 
 # or open a shipped test model
-open http://127.0.0.1:8000/model/test/graph
+open http://127.0.0.1:8000/models/test/graph
 ```
 
 sample output of the last call:
@@ -53,27 +68,27 @@ sample output of the last call:
 ```bash
 for i in {0..9}; do
   curl -X POST \
-    http://127.0.0.1:8000/model/foo \
+    http://127.0.0.1:8000/models/foo/metrics \
     -H "Content-Type: application/json" \
     -d '{
-    "date": "2025-05-01 12:0'${i}':00",
-    "value": 6'${i}'0
-  }';
+      "date": "2025-05-01 12:0'${i}':00",
+      "value": 6'${i}'0
+    }';
 done
 
 # retrain
-curl http://127.0.0.1:8000/retrain/foo
+curl http://127.0.0.1:8000/models/foo/retrain
 ```
 
 ### Predict
 ```bash
 curl -s -X POST \
-  http://127.0.0.1:8000/predict/foo \
+  http://127.0.0.1:8000/models/foo/predict \
   -H "Content-Type: application/json" \
   -d '{
-  "start_date": "2025-03-05 12:00:00",
-  "periods": 2
-}' | jq
+    "start_date": "2025-03-05 12:00:00",
+    "periods": 2
+  }' | jq
 {
   "forecast": [
     {
@@ -97,7 +112,7 @@ curl http://127.0.0.1:8000/resetDb
 ### Delete a Model
 ```bash
 # delete model called foo (removes its data from DB and its serialized Prophet model from fs)
-curl -X DELETE http://127.0.0.1:8000/model/foo
+curl -X DELETE http://127.0.0.1:8000/models/foo
 ```
 
 ##  How to Run on Kubernetes

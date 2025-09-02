@@ -14,7 +14,10 @@ spec:
     spec:
       containers:
       - name: feeder
-        image: nixery.dev/shell/curl/jq
+        image: nixery.dev/shell/curl/jq/bc
+        env:
+          - name: FRESH_START
+            value: "true"
         resources:
           requests:
             memory: "64Mi"
@@ -29,20 +32,51 @@ spec:
           - |
             set -o nounset
             #set -x
-            _sec=30
+            _sec=45
+            [ "x${FRESH_START}" = "xtrue" ] && {
+              echo "resetting the models"
+              for svc in 15m 30m 60m 120m sum-all sum-some; do
+                curl -s -X DELETE http://keda-prophet.default.svc:8000/models/minute-metrics-${svc}
+              done
+            }
+
             while true; do
-              value=$(curl -s http://minute-metrics.default.svc/api/v1/minutemetrics | jq '.value')
-              if [ $? -eq 0 ]; then
-                time=$(date -u +"%Y-%m-%d %H:%M:%S")
-                echo "At ${time} got: ${value}"
-                curl -s -X POST http://keda-prophet.default.svc:8000/model/minutemetrics \
-                  -H "Content-Type: application/json" \
-                  -d "{
-                    \"date\": \"${time}\",
-                    \"value\": ${value}
-                  }";
-              fi
-              echo -e "\nWaiting ${_sec} seconds.."
+              _sumAll=0
+              _sumSome=0
+              time=$(date -u +"%Y-%m-%d %H:%M:%S")
+              (
+                for svc in 15m 30m 60m 120m; do
+                  value=$(curl -s http://minute-metrics-${svc}.default.svc/api/v1/minutemetrics | jq '.value')
+                  if [ $? -eq 0 ]; then
+                    _sumAll=$(echo "$_sumAll + $value" | bc)
+                    [[ "${svc}" = "15m" || "${svc}" = "120m" ]] && _sumSome=$(echo "$_sumSome + $value" | bc)
+                    echo -e "\n - At ${time} for minute-metrics-${svc} got: ${value}"
+                    curl -s -X POST http://keda-prophet.default.svc:8000/model/minute-metrics-${svc} \
+                      -H "Content-Type: application/json" \
+                      -d "{
+                        \"date\": \"${time}\",
+                        \"value\": ${value}
+                      }" | jq '.message'
+                  else
+                    echo "Unable to get value from http://minute-metrics-${svc}.default.svc/api/v1/minutemetrics"
+                  fi
+                done
+                echo -e "\n - At ${time} for minute-metrics-sum-all got: ${_sumAll}"
+                curl -s -X POST http://keda-prophet.default.svc:8000/model/minute-metrics-sum-all \
+                      -H "Content-Type: application/json" \
+                      -d "{
+                        \"date\": \"${time}\",
+                        \"value\": ${_sumAll}
+                      }" | jq '.message'
+                echo -e "\n - At ${time} for minute-metrics-sum-some (15m + 120m) got: ${_sumSome}"
+                curl -s -X POST http://keda-prophet.default.svc:8000/model/minute-metrics-sum-some \
+                      -H "Content-Type: application/json" \
+                      -d "{
+                        \"date\": \"${time}\",
+                        \"value\": ${_sumSome}
+                      }" | jq '.message'
+              )&
+              echo -e "\n\nWaiting ${_sec} seconds.."
               sleep ${_sec}
             done
             exit 1

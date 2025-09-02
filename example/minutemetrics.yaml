@@ -1,21 +1,58 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: minute-metrics
+  name: minute-metrics-15m
 spec:
   replicas: 1
   selector:
     matchLabels:
-      app: minute-metrics
+      app: minute-metrics-15m
   template:
     metadata:
       labels:
-        app: minute-metrics
+        app: minute-metrics-15m
     spec:
       containers:
       - name: minute-metrics
-        # arm only, todo: rights for ghcr.io/kedify/sample-minute-metrics img
-        image: docker.io/jkremser/sample-minute-metrics:cycles
+        image: ghcr.io/kedify/sample-minute-metrics
+        ports:
+        - containerPort: 8080
+        env:
+        - name: CYCLE_MINUTES
+          value: "15"
+        - name: SCHEDULE
+          # value goes from 0 to 5 (slowly) then back to 0 (quickly) in 15 min cycles
+          value: "0:0,1:0.5,2:1,3:1.5,4:2,5:2.5,6:3,7:3.5,8:4,9:4.5,10:5,11:4,12:3,13:2,14:1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minute-metrics-15m
+spec:
+  selector:
+    app: minute-metrics-15m
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minute-metrics-30m
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minute-metrics-30m
+  template:
+    metadata:
+      labels:
+        app: minute-metrics-30m
+    spec:
+      containers:
+      - name: minute-metrics
+        image: ghcr.io/kedify/sample-minute-metrics
         ports:
         - containerPort: 8080
         env:
@@ -28,12 +65,87 @@ spec:
 apiVersion: v1
 kind: Service
 metadata:
-  name: minute-metrics
+  name: minute-metrics-30m
 spec:
   selector:
-    app: minute-metrics
+    app: minute-metrics-30m
   ports:
     - protocol: TCP
       port: 80
       targetPort: 8080
 ---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minute-metrics-60m
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minute-metrics-60m
+  template:
+    metadata:
+      labels:
+        app: minute-metrics-60m
+    spec:
+      containers:
+      - name: minute-metrics
+        image: ghcr.io/kedify/sample-minute-metrics
+        ports:
+        - containerPort: 8080
+        env:
+        - name: CYCLE_MINUTES
+          value: "60"
+        - name: SCHEDULE
+          # value goes from 0 to 30 then back to 0 in 60 min cycles
+          value: "0:0,1:1,2:2,3:3,4:4,5:5,6:6,7:7,8:8,9:9,10:10,11:11,12:12,13:13,14:14,15:15,16:16,17:17,18:18,19:19,20:20,21:21,22:22,23:23,24:24,25:25,26:26,27:27,28:28,29:29,30:30,31:29,32:28,33:27,34:26,35:25,36:24,37:23,38:22,39:21,40:20,41:19,42:18,43:17,44:16,45:15,46:14,47:13,48:12,49:11,50:10,51:9,52:8,53:7,54:6,55:5,56:4,57:3,58:2,59:1"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minute-metrics-60m
+spec:
+  selector:
+    app: minute-metrics-60m
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: minute-metrics-120m
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: minute-metrics-120m
+  template:
+    metadata:
+      labels:
+        app: minute-metrics-120m
+    spec:
+      containers:
+      - name: minute-metrics
+        image: ghcr.io/kedify/sample-minute-metrics
+        ports:
+        - containerPort: 8080
+        env:
+        - name: CYCLE_MINUTES
+          value: "120"
+        - name: SCHEDULE
+          # value goes from 10 to 0 then back to 10 in 120 min cycles - y=5*(cos(x)+1)
+          value: "0:10,1:9.993,2:9.973,3:9.938,4:9.891,5:9.83,6:9.755,7:9.668,8:9.568,9:9.455,10:9.33,11:9.193,12:9.045,13:8.886,14:8.716,15:8.536,16:8.346,17:8.147,18:7.939,19:7.723,20:7.5,21:7.27,22:7.034,23:6.792,24:6.545,25:6.294,26:6.04,27:5.782,28:5.523,29:5.262,30:5,31:4.738,32:4.477,33:4.218,34:3.96,35:3.706,36:3.455,37:3.208,38:2.966,39:2.73,40:2.5,41:2.277,42:2.061,43:1.853,44:1.654,45:1.464,46:1.284,47:1.114,48:0.954,49:0.805,50:0.668,51:0.543,52:0.43,53:0.332,54:0.245,55:0.17,56:0.109,57:0.062,58:0.027,59:0.007,60:0,61:0.007,62:0.027,63:0.062,64:0.109,65:0.17,66:0.245,67:0.332,68:0.43,69:0.543,70:0.668,71:0.805,72:0.954,73:1.114,74:1.284,75:1.464,76:1.654,77:1.853,78:2.061,79:2.277,80:2.5,81:2.73,82:2.966,83:3.208,84:3.455,85:3.706,86:3.96,87:4.218,88:4.477,89:4.738,90:5,91:5.262,92:5.523,93:5.782,94:6.04,95:6.294,96:6.545,97:6.792,98:7.034,99:7.27,100:7.5,101:7.723,102:7.939,103:8.147,104:8.346,105:8.536,106:8.716,107:8.886,108:9.045,109:9.193,110:9.33,111:9.455,112:9.568,113:9.668,114:9.755,115:9.83,116:9.891,117:9.938,118:9.973,119:9.993"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: minute-metrics-120m
+spec:
+  selector:
+    app: minute-metrics-120m
+  ports:
+    - protocol: TCP
+      port: 80
+      targetPort: 8080
