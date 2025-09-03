@@ -157,7 +157,6 @@ sqlite> SELECT * FROM metrics WHERE name = 'foo';
 ..
 ```
 
-
 ### Inspect DB in k3d
 ```bash
 kubectl debug no/k3d-k3s-default-server-0 -it --image=ubuntu:latest -- bash
@@ -183,3 +182,17 @@ drwxrwxrwx 2 root  root  4.0K Sep  3 13:42 ./
 drwx------ 6 root  root  4.0K Sep  3 11:57 ../
 -rw-r--r-- 1 65532 65532 688K Sep  3 13:42 db.sqlite
 ```
+
+## Examples
+<!-- curl http://localhost:8000/models/minute-metrics-60m/graph?periods=500&freq=30s&hoursAgo=3 -o ./60m-500p-30s -->
+Using data from this [deployment](https://github.com/jkremser/keda-prophet-poc/blob/b08d8b6cd1326530db44649aa73e0e23dd723d70/example/minutemetrics.yaml#L77-L101):
+
+![test-graph](./60m-500p-30s.png "Future predictions")
+
+<!-- curl http://localhost:8000/models/minute-metrics-30m/graph?periods=800p&freq=20s -o ./30m-800p-20s -->
+Using data from this [deployment](https://github.com/jkremser/keda-prophet-poc/blob/b08d8b6cd1326530db44649aa73e0e23dd723d70/example/minutemetrics.yaml#L39-L63):
+![test-graph](./30m-800p-20s.png "Future predictions")
+
+<!-- curl http://localhost:8000/models/minute-metrics-sum-all/graph?periods=37&freq=1min -o ./sum-all-37p-1m -->
+Using data from obtained by summing all the cycles ([logic here](https://github.com/jkremser/keda-prophet-poc/blob/b08d8b6cd1326530db44649aa73e0e23dd723d70/example/feeder.yaml#L64)):
+![test-graph](./sum-all-37p-1m.png "Future predictions")
