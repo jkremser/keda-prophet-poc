@@ -98,7 +98,6 @@ def list_models():
     import traceback
     try:
         models = list()
-        print(models)
         return {"models": [ ','.join(models) ]}
     except Exception as e:
         print(traceback.format_exc())
@@ -167,6 +166,13 @@ async def readiness_probe():
 @app.get("/liveness")
 async def liveness_probe():
     return {"status": "alive"}
+
+class EndpointFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        return record.getMessage().find("/liveness") == -1 and record.getMessage().find("/readiness") == -1
+
+# exclude endpoints /liveness & /readiness from logs
+logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
 def init():
     global db_ready

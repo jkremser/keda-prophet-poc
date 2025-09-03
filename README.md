@@ -129,6 +129,16 @@ make build-image
 make build-image-multiarch
 ```
 
+## Kubernetes
+```bash
+k3d cluster create prophet -p "8000:31111@server:0"
+helm upgrade -i foo oci://ghcr.io/kedify/charts/keda-prophet --version=v0.0.1 \
+   --set service.type=NodePort \
+   --set service.nodePort=31111
+open http://localhost:8000
+# continue with examples in /examples
+```
+
 ## Dev
 
 ### Inspect Database
@@ -145,4 +155,31 @@ Enter ".help" for usage hints.
 sqlite> SELECT * FROM metrics WHERE name = 'foo';
 2025-03-02 00:00:00.000|foo|462.06306463961
 ..
+```
+
+
+### Inspect DB in k3d
+```bash
+kubectl debug no/k3d-k3s-default-server-0 -it --image=ubuntu:latest -- bash
+
+ll -h /host/var/lib/rancher/k3s/storage/*_prophet-models/
+/host/var/lib/rancher/k3s/storage/pvc-35b34777-4ffd-4a58-adac-5f4a77db5e71_default_prophet-models/:
+total 860K
+drwxrwxrwx 2 root  root  4.0K Sep  3 10:40 ./
+drwx------ 6 root  root  4.0K Sep  3 11:57 ../
+-rw-r--r-- 1 65532 65532 354K Aug 28 14:45 prophet-foo.pkl
+-rw-r--r-- 1 65532 65532  31K Sep  3 12:59 prophet-minute-metrics-120m.pkl
+-rw-r--r-- 1 65532 65532  31K Sep  3 12:59 prophet-minute-metrics-15m.pkl
+-rw-r--r-- 1 65532 65532  31K Sep  3 12:59 prophet-minute-metrics-30m.pkl
+-rw-r--r-- 1 65532 65532  31K Sep  3 12:59 prophet-minute-metrics-60m.pkl
+-rw-r--r-- 1 65532 65532  31K Sep  3 12:59 prophet-minute-metrics-sum-all.pkl
+-rw-r--r-- 1 65532 65532  34K Sep  3 13:19 prophet-minute-metrics-sum-some.pkl
+-rw-r--r-- 1 65532 65532 299K Sep  2 10:46 prophet-minutemetrics.pkl
+
+ll -h /host/var/lib/rancher/k3s/storage/*_prophet-sqlite/
+/host/var/lib/rancher/k3s/storage/pvc-c4eb3c05-32bc-4f03-972c-bb29980e6f20_default_prophet-sqlite/:
+total 696K
+drwxrwxrwx 2 root  root  4.0K Sep  3 13:42 ./
+drwx------ 6 root  root  4.0K Sep  3 11:57 ../
+-rw-r--r-- 1 65532 65532 688K Sep  3 13:42 db.sqlite
 ```

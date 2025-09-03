@@ -21,3 +21,7 @@
 .idea/
 *.tmproj
 .vscode/
+
+# Custom
+keda-prophet*.tgz
+_helm-docs-*
