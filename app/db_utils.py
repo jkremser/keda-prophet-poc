@@ -85,7 +85,14 @@ def reset_database():
         cur = con.cursor()
         for statement in drop_tables_q + create_tables_q:
             cur.execute(statement)
-        print("\n✅ Tables dropped successfully.")
+        print("\n✅ Tables recreated successfully.")
+
+def init_database():
+    with sqlite3.connect(db_file) as con:
+        cur = con.cursor()
+        for statement in create_tables_q:
+            cur.execute(statement)
+        print("\n✅ Tables initialized successfully.")
 
 def feed_db(model, days, days_trend_factor, off_hours_factor, jitter):
     with sqlite3.connect(db_file) as con:

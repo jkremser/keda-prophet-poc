@@ -26,7 +26,8 @@ spec:
         spec:
           containers:
           - name: retrainer
-            image: nixery.dev/shell/curl/jq
+            # image: nixery.dev/shell/curl/jq
+            image: badouralix/curl-jq:alpine
             resources:
               requests:
                 memory: "64Mi"
@@ -36,7 +37,7 @@ spec:
                 cpu: "100m"
             imagePullPolicy: IfNotPresent
             command:
-            - /bin/bash
+            - /bin/sh
             - -ce
             - |
               set -o nounset

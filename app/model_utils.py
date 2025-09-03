@@ -58,8 +58,11 @@ def generate_graph_bytes(start_date: str, periods: int, name: str, freq: str) ->
 
 def delete_serialized_model(model_name):
     p = os.path.abspath(f"{models_path}/prophet-{model_name}.pkl")
-    os.remove(p)
-    print(f"✅ Model {p} was deleted")
+    try:
+        os.remove(p)
+        print(f"✅ Model {p} was deleted")
+    except Exception as e:
+        print(traceback.format_exc())
 
 def train_and_save(model_name, params, df):
     parsed_params: ModelParams = parseModelParams(params)

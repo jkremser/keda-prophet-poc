@@ -10,10 +10,11 @@ from typing import List
 import pandas as pd
 from datetime import datetime, timedelta
 from .model_utils import generate_forecast, generate_graph_bytes
-from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list, delete, reset_database
+from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list, delete, reset_database, init_database
 
 app = FastAPI(title="KEDA Prophet")
 logger = logging.getLogger('uvicorn.info')
+db_ready = False
 
 # Input schemas
 class CreateModelRequest(BaseModel):
@@ -156,10 +157,24 @@ def graph(model, hoursAgo: int = 0, freq: str = "h", periods: int = 600):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e) + ". Make sure you call the /metrics and /retrain endpoints first")
 
+@app.get("/readiness")
+async def readiness_probe():
+    global db_ready
+    if db_ready:
+        return {"status": "ready"}
+    raise HTTPException(status_code=503, detail="Not ready yet")
+
+@app.get("/liveness")
+async def liveness_probe():
+    return {"status": "alive"}
+
 def init():
+    global db_ready
     logger.info("KEDA Prophet API is starting up")
     logger.info("-------------------------------")
     logger.info(f"Version: {os.getenv("VERSION", "main")}")
     logger.info(f"Git Sha: {os.getenv("GIT_SHA", "main")}")
+    init_database()
+    db_ready = True
 
 init()

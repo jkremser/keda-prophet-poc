@@ -1,0 +1,7 @@
+apiVersion: v2
+name: keda-prophet
+description: A Helm chart for KEDA Prophet (time-series forecaster)
+type: application
+version: v0.0.1
+appVersion: v0.0.1
+kubeVersion: ">= 1.19.0-0"
