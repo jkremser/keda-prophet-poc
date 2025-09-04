@@ -39,9 +39,9 @@ spec:
               protocol: TCP
           env:
             - name: DB_FILE
-              value: /data/db.sqlite
+              value: {{ .Values.settings.storage.dbFile }}
             - name: MODELS_PATH
-              value: /models
+              value: {{ .Values.settings.storage.modelsPath }}
           args:
             - --log-level={{ .Values.settings.logs.logLvl }}
           {{- with .Values.livenessProbe }}

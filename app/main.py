@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from .common_utils import to_bool
 from .model_utils import generate_forecast, generate_graph_bytes
-from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list_models, delete, reset_database, init_database
+from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list_models_db, delete, reset_database, init_database
 
 app = FastAPI(title="KEDA Prophet")
 logger = logging.getLogger('uvicorn.info')
@@ -48,9 +48,9 @@ def docs_redirect():
     return RedirectResponse(url='/docs')
 
 @app.post("/models")
-@app.post("/models/")
-@app.put("/models")
-@app.put("/models/")
+@app.post("/models/", include_in_schema=False)
+@app.put("/models", include_in_schema=False)
+@app.put("/models/", include_in_schema=False)
 def upsert_model(request: CreateModelRequest):
     try:
         upsert_mod(request)
@@ -93,13 +93,13 @@ def feed_measurement(model, request: MetricStoreRequest):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/")
-@app.get("/models")
+@app.get("/models", response_model=List[str])
+@app.get("/models/", include_in_schema=False, response_model=List[str])
 def list_models():
     import traceback
     try:
-        models = list_models()
-        return {"models": [ ','.join(models) ]}
+        models = list_models_db()
+        return models
     except Exception as e:
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
@@ -200,14 +200,14 @@ def graph_components(model, uncertainty = "1", hoursAgo: int = 0, freq: str = "1
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e) + ". Make sure you call the /metrics and /retrain endpoints first")
 
-@app.get("/readiness")
+@app.get("/readiness", include_in_schema=False)
 async def readiness_probe():
     global db_ready
     if db_ready:
         return {"status": "ready"}
     raise HTTPException(status_code=503, detail="Not ready yet")
 
-@app.get("/liveness")
+@app.get("/liveness", include_in_schema=False)
 async def liveness_probe():
     return {"status": "alive"}
 

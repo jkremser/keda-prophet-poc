@@ -50,6 +50,25 @@ run-image: ## Runs the REST api from ghcr.io/kedify/keda-prophet:main container 
 	@$(call say,Starting REST api)
 	docker run -ti -p8000:8000 $(CONTAINER_IMAGE):$(VERSION)
 
+.PHONY: run-k3d
+run-k3d: build-image ## Creates k3d cluster w/ KEDA Prophet and some test data
+	@$(call say,Creating k3d cluster prophet)
+	-k3d cluster delete prophet
+	k3d cluster create prophet -p "8000:31111@server:0"
+	@$(call say,Importing image)
+	k3d image import -c $(shell kubectl config current-context | sed -e "s/^k3d-//") ghcr.io/kedify/keda-prophet:main
+	@$(call say,Installing helmchart w/ sample DB)
+	helm upgrade -i foo ./helmchart/keda-prophet \
+		--set image.tag=main \
+		--set image.pullPolicy=IfNotPresent \
+		--set service.type=NodePort \
+		--set service.nodePort=31111 \
+		--set settings.storage.dbFile=/app/data/sample-db.sqlite
+	@$(call say,Opening browser)
+	kubectl rollout status --timeout=600s deploy/foo-keda-prophet
+	@open http://localhost:8000
+	@echo "\nContinue w/:\n  - curl -s localhost:8000/models | jq\nretraining them:\n  - curl -s localhost:8000/models/{name}/retrain\nExplore them:\n  - open http://localhost:8000/models/{name}/graph"
+
 .PHONY: deploy-k8s
 deploy-k8s: ## Deploys the KEDA Prophet to current k8s context
 	@$(call say,Deploying to k8s)

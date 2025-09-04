@@ -163,7 +163,7 @@ def get_model(name):
         rows = cur.fetchone()
         return rows
 
-def list_models():
+def list_models_db():
     with sqlite3.connect(db_file) as con:
         cur = con.cursor()
         cur.execute(list_models_q)

@@ -142,6 +142,13 @@ make build-image-multiarch
 
 ## Dev
 
+### Dev on K8s
+```bash
+make run-k3d
+# & eventually:
+# k3d cluster delete prophet
+```
+
 ### Inspect Database
 
 ```bash
