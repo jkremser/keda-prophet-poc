@@ -18,7 +18,9 @@ spec:
         image: badouralix/curl-jq:alpine
         env:
           - name: FRESH_START
-            value: "true"
+            value: "false"
+          - name: KEDA_PROPHET_URL
+            value: "http://keda-prophet.default.svc:8000"
         resources:
           requests:
             memory: "64Mi"
@@ -34,14 +36,16 @@ spec:
             set -o nounset
             #set -x
             _sec=45
-            prophetUrl=http://keda-prophet.default.svc:8000
+            echo "waiting ${_sec} seconds.." && sleep ${_sec}
+            echo "Available models:"
+            curl -s ${KEDA_PROPHET_URL}/models | jq
             [ "x${FRESH_START}" = "xtrue" ] && {
-              echo "Resetting the models:"
+              echo -e "\nResetting the models:"
               for svc in 15m 30m 60m; do
                 echo -e "\n - deleting minute-metrics-${svc}.."
-                curl -s -X DELETE ${prophetUrl}/models/minute-metrics-${svc}
+                curl -s -X DELETE ${KEDA_PROPHET_URL}/models/minute-metrics-${svc} || true
                 hourlyInDays=$(echo "scale=4;1/24" | bc -l | awk '{printf "%.4f\n", $0}')
-                curl -s -X POST ${prophetUrl}/models \
+                curl -s -X POST ${KEDA_PROPHET_URL}/models \
                  -H "Content-Type: application/json" \
                  -d '{
                    "name": "minute-metrics-'${svc}'",
@@ -52,9 +56,9 @@ spec:
               done
               for svc in 120m sum-all sum-some; do
                 echo -e "\n - deleting minute-metrics-${svc}.."
-                curl -s -X DELETE ${prophetUrl}/models/minute-metrics-${svc}
+                curl -s -X DELETE ${KEDA_PROPHET_URL}/models/minute-metrics-${svc} || true
                 twoHrsInDays=$(echo "scale=4;1/12" | bc -l | awk '{printf "%.4f\n", $0}')
-                curl -s -X POST ${prophetUrl}/models \
+                curl -s -X POST ${KEDA_PROPHET_URL}/models \
                  -H "Content-Type: application/json" \
                  -d '{
                    "name": "minute-metrics-'${svc}'",
@@ -63,6 +67,7 @@ spec:
                    "custom_seasonality_fourier_order": 16
                  }';
               done
+              sleep 2
             }
 
             echo -e "\n\nFeeding the models:"
@@ -76,8 +81,8 @@ spec:
                   if [ $? -eq 0 ]; then
                     _sumAll=$(echo "$_sumAll + $value" | bc)
                     [[ "${svc}" = "15m" || "${svc}" = "120m" ]] && _sumSome=$(echo "$_sumSome + $value" | bc)
-                    echo -e "\n - At ${time} for minute-metrics-${svc} got: ${value}"
-                    curl -s -X POST ${prophetUrl}/models/minute-metrics-${svc}/metrics \
+                    echo " - At ${time} for minute-metrics-${svc} got: ${value}"
+                    curl -s -X POST ${KEDA_PROPHET_URL}/models/minute-metrics-${svc}/metrics \
                       -H "Content-Type: application/json" \
                       -d "{
                         \"date\": \"${time}\",
@@ -87,15 +92,15 @@ spec:
                     echo "Unable to get value from http://minute-metrics-${svc}.default.svc/api/v1/minutemetrics"
                   fi
                 done
-                echo -e "\n - At ${time} for minute-metrics-sum-all got: ${_sumAll}"
-                curl -s -X POST ${prophetUrl}/models/minute-metrics-sum-all/metrics \
+                echo " - At ${time} for minute-metrics-sum-all got: ${_sumAll}"
+                curl -s -X POST ${KEDA_PROPHET_URL}/models/minute-metrics-sum-all/metrics \
                       -H "Content-Type: application/json" \
                       -d "{
                         \"date\": \"${time}\",
                         \"value\": ${_sumAll}
                       }" | jq '.message'
-                echo -e "\n - At ${time} for minute-metrics-sum-some (15m + 120m) got: ${_sumSome}"
-                curl -s -X POST ${prophetUrl}/models/minute-metrics-sum-some/metrics \
+                echo " - At ${time} for minute-metrics-sum-some (15m + 120m) got: ${_sumSome}"
+                curl -s -X POST ${KEDA_PROPHET_URL}/models/minute-metrics-sum-some/metrics \
                       -H "Content-Type: application/json" \
                       -d "{
                         \"date\": \"${time}\",

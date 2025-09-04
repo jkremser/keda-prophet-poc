@@ -15,19 +15,22 @@ spec:
             # │  │  │ │ │
             # *  *  * * *
   schedule: "*  */2  * * *"
-  failedJobsHistoryLimit: 0
+  failedJobsHistoryLimit: 1
   jobTemplate:
     metadata:
       namespace: default
     spec:
       ttlSecondsAfterFinished: 120
-      backoffLimit: 1
+      backoffLimit: 3
       template:
         spec:
           containers:
           - name: retrainer
             # image: nixery.dev/shell/curl/jq
             image: badouralix/curl-jq:alpine
+            env:
+              - name: KEDA_PROPHET_URL
+                value: "http://keda-prophet.default.svc:8000"
             resources:
               requests:
                 memory: "64Mi"
@@ -43,7 +46,7 @@ spec:
               set -o nounset
               #set -x
               for svc in 15m 30m 60m 120m sum-all sum-some; do
-                curl -s http://keda-prophet.default.svc:8000/models/minute-metrics-${svc}/retrain
+                curl -s ${KEDA_PROPHET_URL}/models/minute-metrics-${svc}/retrain
                 echo -e "\nModel: minute-metrics-${svc}"
               done
           restartPolicy: Never

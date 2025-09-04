@@ -13,9 +13,8 @@ RUN pip3 install -r requirements.txt
 FROM --platform=$TARGETARCH cgr.dev/chainguard/python:latest
 ARG GIT_COMMIT
 ARG VERSION
-WORKDIR /app
-COPY app /app/app
-COPY data/sample-db.sqlite /app/data/
+COPY --chown=nonroot:nonroot app /app/app
+COPY --chown=nonroot:nonroot data/sample-db.sqlite /app/data/
 COPY --from=dev /app/venv /app/venv
 COPY model /app/model
 ENV PATH="/app/venv/bin:$PATH" \
@@ -25,5 +24,7 @@ ENV PATH="/app/venv/bin:$PATH" \
     GIT_COMMIT=${GIT_COMMIT} \
     VERSION=${GIT_COMMIT}
 COPY --from=dev /app/empty $DB_FILE
+WORKDIR /app
+USER nonroot:nonroot
 EXPOSE 8000/tcp
 ENTRYPOINT ["uvicorn", "app.main:app", "--host", "0.0.0.0"]
