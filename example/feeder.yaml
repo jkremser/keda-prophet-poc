@@ -37,16 +37,29 @@ spec:
             prophetUrl=http://keda-prophet.default.svc:8000
             [ "x${FRESH_START}" = "xtrue" ] && {
               echo "Resetting the models:"
-              for svc in 15m 30m 60m 120m sum-all sum-some; do
+              for svc in 15m 30m 60m; do
                 echo -e "\n - deleting minute-metrics-${svc}.."
                 curl -s -X DELETE ${prophetUrl}/models/minute-metrics-${svc}
                 hourlyInDays=$(echo "scale=4;1/24" | bc -l | awk '{printf "%.4f\n", $0}')
                 curl -s -X POST ${prophetUrl}/models \
                  -H "Content-Type: application/json" \
                  -d '{
-                   "name": "'${svc}'",
+                   "name": "minute-metrics-'${svc}'",
                    "weekly_seasonality": "False",
                    "custom_seasonality_period": '${hourlyInDays}',
+                   "custom_seasonality_fourier_order": 16
+                 }';
+              done
+              for svc in 120m sum-all sum-some; do
+                echo -e "\n - deleting minute-metrics-${svc}.."
+                curl -s -X DELETE ${prophetUrl}/models/minute-metrics-${svc}
+                twoHrsInDays=$(echo "scale=4;1/12" | bc -l | awk '{printf "%.4f\n", $0}')
+                curl -s -X POST ${prophetUrl}/models \
+                 -H "Content-Type: application/json" \
+                 -d '{
+                   "name": "minute-metrics-'${svc}'",
+                   "weekly_seasonality": "False",
+                   "custom_seasonality_period": '${twoHrsInDays}',
                    "custom_seasonality_fourier_order": 16
                  }';
               done

@@ -1,16 +1,15 @@
 # main.py
 
-from fastapi import BackgroundTasks, FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException
 from fastapi.responses import RedirectResponse, StreamingResponse
 import logging
 import os
 import traceback
 from pydantic import BaseModel
 from typing import List
-import pandas as pd
 from datetime import datetime, timedelta
 from .model_utils import generate_forecast, generate_graph_bytes
-from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list, delete, reset_database, init_database
+from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list_models, delete, reset_database, init_database
 
 app = FastAPI(title="KEDA Prophet")
 logger = logging.getLogger('uvicorn.info')
@@ -87,7 +86,7 @@ def retrain(model):
 def feed_measurement(model, request: MetricStoreRequest):
     try:
         insert_measurement(model, request.date, request.value)
-        return {"message": f"Measurement was stored in the db for model {model}"}
+        return {"message": "ack"}
     except Exception as e:
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
@@ -97,7 +96,7 @@ def feed_measurement(model, request: MetricStoreRequest):
 def list_models():
     import traceback
     try:
-        models = list()
+        models = list_models()
         return {"models": [ ','.join(models) ]}
     except Exception as e:
         print(traceback.format_exc())

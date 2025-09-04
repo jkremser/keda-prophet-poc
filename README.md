@@ -181,6 +181,9 @@ total 696K
 drwxrwxrwx 2 root  root  4.0K Sep  3 13:42 ./
 drwx------ 6 root  root  4.0K Sep  3 11:57 ../
 -rw-r--r-- 1 65532 65532 688K Sep  3 13:42 db.sqlite
+
+# make a db snapshot (run outside of debug container)
+kubectl cp node-debugger-k3d-k3s-default-server-0-djd59:/host/var/lib/rancher/k3s/storage/pvc-c4eb3c05-32bc-4f03-972c-bb29980e6f20_default_prophet-sqlite/db.sqlite ./db.sqlite_bak
 ```
 
 ## Examples
@@ -196,3 +199,14 @@ Using data from this [deployment](https://github.com/jkremser/keda-prophet-poc/b
 <!-- curl http://localhost:8000/models/minute-metrics-sum-all/graph?periods=37&freq=1min -o ./sum-all-37p-1m -->
 Using data from obtained by summing all the cycles ([logic here](https://github.com/jkremser/keda-prophet-poc/blob/b08d8b6cd1326530db44649aa73e0e23dd723d70/example/feeder.yaml#L64)):
 ![test-graph](./sum-all-37p-1m.png "Future predictions")
+
+same data, but later:
+<!-- http://localhost:8000/models/minute-metrics-sum-all/graph?periods=400&freq=1min&hoursAgo=4 -o ./sum-all-400p-1m -->
+![test-graph](./sum-all-400p-1m.png "Future predictions")
+
+<!-- curl http://localhost:8000/models/minute-metrics-120m/graph?periods=300&freq=10min&hoursAgo=4 -o ./120m-300p-10m -->
+Using data from this [deployment](https://github.com/jkremser/keda-prophet-poc/blob/b08d8b6cd1326530db44649aa73e0e23dd723d70/example/minutemetrics.yaml#L115-L139):
+![test-graph](./120m-300p-10m.png "Future predictions")
+
+> [!IMPORTANT]
+> In order to well capture the short-term (less than 24hrs) seasonalities, make sure the model was created with custom `custom_seasonality_period` and `custom_seasonality_fourier_order` params. The first one describes the length of the cycle in days and the second the "resolution" of the regression in terms of fourier orders. High values of `custom_seasonality_fourier_order` can fit more complicated patterns, but can also lead to over-fitting and sacrificing the generalization of the prediction.

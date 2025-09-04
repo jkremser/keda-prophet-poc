@@ -7,7 +7,6 @@ logging.getLogger("prophet.plot").disabled = True
 from prophet import Prophet
 from pydantic import BaseModel
 import pickle
-from prophet.serialize import model_to_json, model_from_json
 from datetime import datetime
 import matplotlib
 matplotlib.use("Agg")
@@ -104,6 +103,7 @@ class ModelParams(BaseModel):
 
 def parseModelParams(params):
     if params == None:
+        print("using default params")
         return get_default_model_params()
     return ModelParams(
         yearly_seasonality=parseSeasonality(params[0]),

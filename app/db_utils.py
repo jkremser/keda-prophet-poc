@@ -1,10 +1,7 @@
 import pandas as pd
 import logging
 logging.getLogger("prophet.plot").disabled = True
-from prophet import Prophet
-from prophet.serialize import model_to_json, model_from_json
 import sqlite3
-import pickle
 import os
 import sys
 from numpy import random
@@ -74,7 +71,6 @@ create_tables_q = [
 
 def retrain_and_save(model_name):
     with sqlite3.connect(db_file) as con:
-        cur = con.cursor()
         df = pd.read_sql_query(f"SELECT * FROM metrics WHERE name = '{model_name}' ", con)
         df = df.rename(columns={"timestamp": "ds", "value": "y"})
         params = get_model(model_name)
@@ -167,7 +163,7 @@ def get_model(name):
         rows = cur.fetchone()
         return rows
 
-def list():
+def list_models():
     with sqlite3.connect(db_file) as con:
         cur = con.cursor()
         cur.execute(list_models_q)

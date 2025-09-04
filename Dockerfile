@@ -15,6 +15,7 @@ ARG GIT_COMMIT
 ARG VERSION
 WORKDIR /app
 COPY app /app/app
+COPY data/sample-db.sqlite /app/data/
 COPY --from=dev /app/venv /app/venv
 COPY model /app/model
 ENV PATH="/app/venv/bin:$PATH" \

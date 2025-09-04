@@ -3,3 +3,6 @@ __pycache__/
 model/prophet-*
 !model/prophet-test.pkl
 keda-prophet-*.tgz
+.idea
+.pycharmrc
+/data/db.sqlite
