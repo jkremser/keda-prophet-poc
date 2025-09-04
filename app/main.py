@@ -8,6 +8,8 @@ import traceback
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime, timedelta
+
+from .common_utils import to_bool
 from .model_utils import generate_forecast, generate_graph_bytes
 from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list_models, delete, reset_database, init_database
 
@@ -143,13 +145,56 @@ def feed_test_data(model,days=14, daysTrendFactor=1.1, offHoursFactor=0, jitter=
         }
     }
 )
-def graph(model, hoursAgo: int = 0, freq: str = "h", periods: int = 600):
+def graph(model, legend = "F", trend = "F", uncertainty = "T", hoursAgo: int = 0, dataHoursAgo: int = 0, freq: str = "10min", periods: int = 60):
     try:
         if hoursAgo > 0:
-            startTime = (datetime.today() - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
+            prediction_start_time = (datetime.today() - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
         else:
-            startTime = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
-        image_bytes = generate_graph_bytes(startTime, periods, model, freq)
+            prediction_start_time = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        if dataHoursAgo > 0:
+            data_start_time = (datetime.today() - timedelta(hours=dataHoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            data_start_time = None
+        image_bytes = generate_graph_bytes(
+            data_start_date=data_start_time,
+            prediction_start_date = prediction_start_time,
+            include_legend = to_bool(legend),
+            uncertainty = to_bool(uncertainty),
+            trend = to_bool(trend),
+            periods = periods,
+            name = model,
+            freq = freq,
+        )
+        return StreamingResponse(image_bytes, media_type="image/png")
+    except Exception as e:
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e) + ". Make sure you call the /metrics and /retrain endpoints first")
+
+@app.get(
+    "/models/{model}/graphComponents",
+    responses={
+        200: {
+            "content": {"image/png": {}},
+        }
+    }
+)
+def graph_components(model, uncertainty = "1", hoursAgo: int = 0, freq: str = "10min", periods: int = 60):
+    try:
+        if hoursAgo > 0:
+            prediction_start_time = (datetime.today() - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
+        else:
+            prediction_start_time = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+        image_bytes = generate_graph_bytes(
+            data_start_date=None,
+            prediction_start_date = prediction_start_time,
+            include_legend = False,
+            uncertainty = to_bool(uncertainty),
+            trend=False,
+            periods = periods,
+            name = model,
+            freq = freq,
+            components = True,
+        )
         return StreamingResponse(image_bytes, media_type="image/png")
     except Exception as e:
         print(traceback.format_exc())

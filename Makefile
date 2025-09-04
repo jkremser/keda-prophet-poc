@@ -37,6 +37,14 @@ run-dev: ## Runs the REST api
 	source venv/bin/activate && \
 	python3 -m uvicorn app.main:app --log-level $(DEV_LOG_LVL) --reload
 
+.PHONY: run-dev-fill-db
+run-dev-fill-db: ## Runs the REST api with pre-filled database
+	@$(call say,Starting REST api)
+	python3 -m venv venv && \
+	source venv/bin/activate && \
+	cp data/sample-db.sqlite data/sample-db.sqlite_cpy && \
+	DB_FILE=data/sample-db.sqlite_cpy python3 -m uvicorn app.main:app --log-level $(DEV_LOG_LVL) --reload
+
 .PHONY: run-image
 run-image: ## Runs the REST api from ghcr.io/kedify/keda-prophet:main container image
 	@$(call say,Starting REST api)

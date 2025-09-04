@@ -117,6 +117,17 @@ curl -X DELETE http://127.0.0.1:8000/models/foo
 
 ##  How to Run on Kubernetes
 
+### Install Using Helm Chart
+```bash
+k3d cluster create prophet -p "8000:31111@server:0"
+helm upgrade -i foo oci://ghcr.io/kedify/charts/keda-prophet --version=v0.0.1 \
+   --set service.type=NodePort \
+   --set service.nodePort=31111
+open http://localhost:8000
+# continue with examples in /examples
+```
+
+or just apply prepared deployment:
 ```bash
 # this will deploy the k8s manifest from k8s/deployment.yaml (2 PVCs, Deployment and Service)
 make deploy-k8s
@@ -127,16 +138,6 @@ make deploy-k8s
 ```bash
 make build-image
 make build-image-multiarch
-```
-
-## Kubernetes
-```bash
-k3d cluster create prophet -p "8000:31111@server:0"
-helm upgrade -i foo oci://ghcr.io/kedify/charts/keda-prophet --version=v0.0.1 \
-   --set service.type=NodePort \
-   --set service.nodePort=31111
-open http://localhost:8000
-# continue with examples in /examples
 ```
 
 ## Dev
@@ -197,7 +198,7 @@ Using data from this [deployment](https://github.com/jkremser/keda-prophet-poc/b
 ![test-graph](./30m-800p-20s.png "Future predictions")
 
 <!-- curl http://localhost:8000/models/minute-metrics-sum-all/graph?periods=37&freq=1min -o ./sum-all-37p-1m -->
-Using data from obtained by summing all the cycles ([logic here](https://github.com/jkremser/keda-prophet-poc/blob/b08d8b6cd1326530db44649aa73e0e23dd723d70/example/feeder.yaml#L64)):
+Using data obtained by summing all the cycles ([logic here](https://github.com/jkremser/keda-prophet-poc/blob/b08d8b6cd1326530db44649aa73e0e23dd723d70/example/feeder.yaml#L64)):
 ![test-graph](./sum-all-37p-1m.png "Future predictions")
 
 same data, but later:

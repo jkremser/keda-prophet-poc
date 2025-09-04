@@ -5,9 +5,10 @@ import pandas as pd
 import logging
 logging.getLogger("prophet.plot").disabled = True
 from prophet import Prophet
+from prophet.plot import add_changepoints_to_plot
 from pydantic import BaseModel
 import pickle
-from datetime import datetime
+from datetime import datetime, timedelta
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -34,19 +35,31 @@ def generate_forecast(start_date: str, periods: int, name: str) -> pd.DataFrame:
         # Filter required fields (yhat and ds are names expected by prophet)
         return forecast[["ds", "yhat"]]
 
-def generate_graph_bytes(start_date: str, periods: int, name: str, freq: str) -> pd.DataFrame:
+def generate_graph_bytes(data_start_date: str|None, prediction_start_date: str, include_legend: bool, uncertainty: bool, trend: bool, periods: int, name: str, freq: str, components = False) -> pd.DataFrame:
     with open(f"{models_path}/prophet-{name}.pkl", "rb") as f:
         model = pickle.load(f)
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
-
         # Create future dataframe
-        future = pd.date_range(start=start_dt, periods=periods, freq=freq)
+        future = pd.date_range(start=prediction_start_date, periods=periods, freq=freq)
         future_df = pd.DataFrame({"ds": future})
 
         # Predict
         forecast = model.predict(future_df)
 
-        fig = model.plot(forecast)
+            # bar = forecast[forecast["ds"] >= data_start_date]
+
+        # print(bar)
+
+        if components:
+            fig = model.plot_components(forecast, uncertainty=uncertainty)
+        else:
+            fig = model.plot(forecast, include_legend = include_legend, uncertainty=uncertainty)
+            if trend:
+                add_changepoints_to_plot(fig.gca(), model, forecast)
+
+        if data_start_date:
+            print("sdfsfd")
+            ax = fig.gca()
+            ax.set_xlim(pd.to_datetime([data_start_date, forecast["ds"].max()]))
 
         img_buf = io.BytesIO()
         fig.savefig(img_buf, format='png')
@@ -74,7 +87,8 @@ def train_and_save(model_name, params, df):
         daily_seasonality=parsed_params.daily_seasonality,
         seasonality_mode=parsed_params.seasonality_mode,
     )
-    
+    # by default, add six-hour seasonality
+    model.add_seasonality(name='six', period=6/24, fourier_order=10)
     if parsed_params.has_custom_seasonality:
         model.add_seasonality(name='custom', period=parsed_params.custom_seasonality_period, fourier_order=parsed_params.custom_seasonality_fourier_order)
     # Train model

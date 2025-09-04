@@ -6,3 +6,4 @@ keda-prophet-*.tgz
 .idea
 .pycharmrc
 /data/db.sqlite
+/data/sample-db.sqlite_cpy
