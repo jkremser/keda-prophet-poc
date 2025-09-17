@@ -10,6 +10,7 @@ from pydantic import BaseModel
 import pickle
 from datetime import datetime, timedelta
 import matplotlib
+import traceback
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 

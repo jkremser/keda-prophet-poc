@@ -56,7 +56,7 @@ run-k3d: build-image ## Creates k3d cluster w/ KEDA Prophet and some test data
 	-k3d cluster delete prophet && sleep 1
 	k3d cluster create prophet -p "8000:31111@server:0"
 	@$(call say,Importing image)
-	k3d image import -c $(shell kubectl config current-context | sed -e "s/^k3d-//") ghcr.io/kedify/keda-prophet:main
+	k3d image import -c prophet ghcr.io/kedify/keda-prophet:main
 	@$(call say,Installing helmchart w/ sample DB)
 	helm upgrade -i foo ./helmchart/keda-prophet \
 		--set image.tag=main \
