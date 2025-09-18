@@ -1,0 +1,106 @@
+{{- if .Values.kedaPredictionController.enabled }}
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "keda-prophet.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+---
+# permissions to do the controller stuff.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: {{ include "keda-prophet.fullname" . }}-manager-role
+rules:
+- apiGroups:
+  - kedify.io.kedify.io
+  resources:
+  - metricpredictors
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - kedify.io.kedify.io
+  resources:
+  - metricpredictors/finalizers
+  verbs:
+  - update
+- apiGroups:
+  - kedify.io.kedify.io
+  resources:
+  - metricpredictors/status
+  verbs:
+  - get
+  - patch
+  - update
+---
+# permissions to do leader election.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "keda-prophet.fullname" . }}-leader-election-role
+  namespace: {{ .Release.Namespace }}
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - get
+  - list
+  - watch
+  - create
+  - update
+  - patch
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "keda-prophet.fullname" . }}-leader-election-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "keda-prophet.fullname" . }}-leader-election-role
+subjects:
+- kind: ServiceAccount
+  name: {{ include "keda-prophet.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: {{ include "keda-prophet.fullname" . }}-manager-rolebinding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: {{ include "keda-prophet.fullname" . }}-manager-role
+subjects:
+- kind: ServiceAccount
+  name: {{ include "keda-prophet.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+---
+{{- end }}

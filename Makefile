@@ -25,7 +25,7 @@ build-image: ## Builds the container image for current arch.
 	docker build . -t $(CONTAINER_IMAGE):$(VERSION) --build-arg VERSION=$(VERSION) --build-arg GIT_COMMIT=$(GIT_COMMIT)
 
 .PHONY: build-image-multiarch
-build-image-multiarch: ## Builds the container image for amd and arm arch.
+build-image-multiarch: ## Builds the container image for amd and arm arch and pushes them to container registry.
 	@$(call say,Build container image $(CONTAINER_IMAGE))
 	docker buildx build . --push --platform linux/amd64,linux/arm64 -t $(CONTAINER_IMAGE):$(VERSION) --build-arg VERSION=$(VERSION) --build-arg GIT_COMMIT=$(GIT_COMMIT)
 

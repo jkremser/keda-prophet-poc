@@ -20,6 +20,14 @@ settings:
     dbFile: /data/db.sqlite
     modelsPath: /models
 
+kedaPredictionController:
+  enabled: false
+  kedaMetricsAddress: keda-operator.keda.svc:9666
+  image:
+    repository: ghcr.io/kedify/keda-prediction-controller
+    pullPolicy: Always
+    # tag: "v0.0.1"
+    tag: "main"
 
 # This is for the secrets for pulling an image from a private repository more information can be found here: https://kubernetes.io/docs/tasks/configure-pod-container/pull-image-private-registry/
 imagePullSecrets: []
@@ -81,6 +89,16 @@ volumeMounts:
     mountPath: /data
   - name: models
     mountPath: /models
+
+extraContainers: ""
+# extraContainers: |
+#   - name: cloudsql-proxy
+#     image: gcr.io/cloud-sql-connectors/cloud-sql-proxy:2.8.0
+#     args:
+#     - --private-ip
+#     - --structured-logs
+#     - --auto-iam-authn
+#     - foo:us-central1:bar-backend
 
 nodeSelector: {}
 
