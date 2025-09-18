@@ -47,6 +47,8 @@ class MetricStoreRequest(BaseModel):
 
 class MetricCsvStoreRequest(BaseModel):
     csvUrl: str
+    timestampColumnName: str = "ds"
+    valueColumnName: str = "y"
 
 # Output schemas
 class ForecastPoint(BaseModel):
@@ -109,7 +111,7 @@ def feed_measurement(model, request: MetricStoreRequest):
 @app.post("/models/{model}/metricsCsv", description="Inserts multiple datapoints passed as external CSV file into internal database.")
 def feed_csv(model, request: MetricCsvStoreRequest):
     try:
-        inserted = insert_multiple_measurements(model, request.csvUrl)
+        inserted = insert_multiple_measurements(model, request.csvUrl, request.timestampColumnName, request.valueColumnName)
         return {"message": f"inserted {inserted} samples"}
     except Exception as e:
         print(traceback.format_exc())
