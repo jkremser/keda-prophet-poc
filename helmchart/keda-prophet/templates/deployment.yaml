@@ -64,11 +64,55 @@ spec:
           volumeMounts:
             {{- toYaml . | nindent 12 }}
           {{- end }}
+        {{- if .Values.kedaPredictionController.enabled }}
+        - name: prediction-controller
+          image: {{ .Values.kedaPredictionController.image.repository }}:{{ .Values.kedaPredictionController.image.tag }}
+          imagePullPolicy: {{ .Values.kedaPredictionController.image.pullPolicy }}
+          args:
+            - --keda-metrics-cert-path=/etc/tls
+            - --keda-metrics-address={{ .Values.kedaPredictionController.kedaMetricsAddress }}
+            - --keda-prophet-address=:8000
+            - --internal-metrics-bind-address=:8081
+          volumeMounts:
+            - name: certs
+              mountPath: /etc/tls
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: 8081
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: 8081
+            initialDelaySeconds: 15
+            periodSeconds: 20
+          resources:
+            limits:
+              cpu: 500m
+              memory: 128Mi
+            requests:
+              cpu: 10m
+              memory: 64Mi
+        {{- end }}
+        {{- with .Values.extraContainers }}
+          {{- tpl . $ | nindent 8 }}
+        {{- end }}
       {{- with .Values.volumes }}
       volumes:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.kedaPredictionController.enabled }}
+        - name: certs
+          secret:
+            defaultMode: 420
+            secretName: kedaorg-certs
+      {{- end }}
       {{- with .Values.nodeSelector }}
+      {{- if .Values.kedaPredictionController.enabled }}
+      serviceAccountName: {{ include "keda-prophet.fullname" . }}
+      {{- end }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
       {{- end }}

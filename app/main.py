@@ -11,9 +11,19 @@ from datetime import datetime, timedelta
 
 from .common_utils import to_bool
 from .model_utils import generate_forecast, generate_graph_bytes
-from .db_utils import feed_db, retrain_and_save, insert_measurement, upsert_mod, list_models_db, delete, reset_database, init_database
+from .db_utils import feed_db, retrain_and_save, insert_measurement, insert_multiple_measurements, upsert_mod, list_models_db, delete, reset_database, init_database
 
-app = FastAPI(title="KEDA Prophet")
+description = """
+KEDA Prophet - Exposing multiple Prophet models via REST api for KEDA. 🚀
+
+<img src="https://kedify.io/assets/images/logo.svg" alt="logo" width="100"/>
+"""
+
+app = FastAPI(
+    title="KEDA Prophet",
+    description=description,
+    version=os.getenv("VERSION", "main"),
+    )
 logger = logging.getLogger('uvicorn.info')
 db_ready = False
 
@@ -35,6 +45,9 @@ class MetricStoreRequest(BaseModel):
     date: str      # e.g., "2025-05-01 00:00:00"
     value: float   # Measured value
 
+class MetricCsvStoreRequest(BaseModel):
+    csvUrl: str
+
 # Output schemas
 class ForecastPoint(BaseModel):
     ds: str
@@ -47,7 +60,7 @@ class ForecastResponse(BaseModel):
 def docs_redirect():
     return RedirectResponse(url='/docs')
 
-@app.post("/models")
+@app.post("/models", description="Create or update Prophet model.")
 @app.post("/models/", include_in_schema=False)
 @app.put("/models", include_in_schema=False)
 @app.put("/models/", include_in_schema=False)
@@ -60,7 +73,7 @@ def upsert_model(request: CreateModelRequest):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/models/{model}/predict", response_model=ForecastResponse)
+@app.post("/models/{model}/predict", response_model=ForecastResponse, description="Asks for the future prediction of the model.")
 def predict(model, request: ForecastRequest):
     try:
         forecast_df = generate_forecast(request.start_date, request.periods, model)
@@ -75,7 +88,7 @@ def predict(model, request: ForecastRequest):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/{model}/retrain")
+@app.get("/models/{model}/retrain", description="Calls .fit() method on the new data.")
 def retrain(model):
     try:
         retrain_and_save(model)
@@ -84,7 +97,7 @@ def retrain(model):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/models/{model}/metrics")
+@app.post("/models/{model}/metrics", description="Inserts new datapoint into internal database.")
 def feed_measurement(model, request: MetricStoreRequest):
     try:
         insert_measurement(model, request.date, request.value)
@@ -93,7 +106,16 @@ def feed_measurement(model, request: MetricStoreRequest):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models", response_model=List[str])
+@app.post("/models/{model}/metricsCsv", description="Inserts multiple datapoints passed as external CSV file into internal database.")
+def feed_csv(model, request: MetricCsvStoreRequest):
+    try:
+        inserted = insert_multiple_measurements(model, request.csvUrl)
+        return {"message": f"inserted {inserted} samples"}
+    except Exception as e:
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/models", response_model=List[str], description="Lists all the available models that have been created.")
 @app.get("/models/", include_in_schema=False, response_model=List[str])
 def list_models():
     import traceback
@@ -104,7 +126,7 @@ def list_models():
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.delete("/models/{model}")
+@app.delete("/models/{model}", description="Deletes the model and its data from database and from filesystem.")
 def delete_model(model):
     try:
         delete(model)
@@ -113,7 +135,7 @@ def delete_model(model):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/resetDb")
+@app.get("/resetDb", description="This will reset all the database tables.")
 def reset_db():
     try:
         reset_database()
@@ -122,7 +144,7 @@ def reset_db():
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/{model}/testData")
+@app.get("/models/{model}/testData", description="Feeds the database with example data.")
 def feed_test_data(model,days=14, daysTrendFactor=1.1, offHoursFactor=0, jitter=.05):
     try:
         feed_db(
@@ -139,6 +161,7 @@ def feed_test_data(model,days=14, daysTrendFactor=1.1, offHoursFactor=0, jitter=
 
 @app.get(
     "/models/{model}/graph",
+    description="Returns png file representing the model and its prediction.",
     responses={
         200: {
             "content": {"image/png": {}},
@@ -172,6 +195,7 @@ def graph(model, legend = "F", trend = "F", uncertainty = "T", hoursAgo: int = 0
 
 @app.get(
     "/models/{model}/graphComponents",
+    description="Returns png file representing the model and its predictions. Predictions are decomposed into seasonalities graphs.",
     responses={
         200: {
             "content": {"image/png": {}},
