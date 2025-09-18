@@ -4,6 +4,7 @@ logging.getLogger("prophet.plot").disabled = True
 import sqlite3
 import os
 import sys
+import csv
 from numpy import random
 from datetime import date,timedelta
 from .model_utils import train_and_save, delete_serialized_model
@@ -57,6 +58,7 @@ create_tables_q = [
             name TEXT NOT NULL,
             value REAL NOT NULL
         );""",
+    """CREATE UNIQUE INDEX ux_measurement ON metrics(name,timestamp);""",
     # https://github.com/facebook/prophet/blob/v1.1.7/python/prophet/forecaster.py#L33-L83
     """CREATE TABLE IF NOT EXISTS models (
             name TEXT PRIMARY KEY,
@@ -139,6 +141,16 @@ def insert_measurement(name, time, value):
         cur = con.cursor()
         insert_sample(cur, name, time, value)
 
+def insert_multiple_measurements(name, csvUrl):
+    data = pd.read_csv(csvUrl)
+    data = data.rename(columns={"ds": "timestamp", "y": "value"})
+    data["name"]=name
+    print(f"inserting following data from CSV {csvUrl}")
+    print(data)
+    with sqlite3.connect(db_file) as con:
+        affectedRows = data.to_sql("metrics", con, if_exists="append", index=False)
+        return affectedRows
+
 def upsert_mod(m):
     with sqlite3.connect(db_file) as con:
         cur = con.cursor()
@@ -179,4 +191,3 @@ def delete(name):
 
 def insert_sample(cur, name, time, value):
     cur.execute(insert_measurement_q, (name, time, value))
-
