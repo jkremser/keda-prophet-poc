@@ -49,6 +49,7 @@ upsert_model_q = '''INSERT INTO models(
 
 drop_tables_q = [ 
     """DROP TABLE IF EXISTS metrics;""",
+    """DROP INDEX IF EXISTS ux_measurement;""",
     """DROP TABLE IF EXISTS models;""",
 ]
 
@@ -58,7 +59,7 @@ create_tables_q = [
             name TEXT NOT NULL,
             value REAL NOT NULL
         );""",
-    """CREATE UNIQUE INDEX ux_measurement ON metrics(name,timestamp);""",
+    """CREATE UNIQUE INDEX IF NOT EXISTS ux_measurement ON metrics(name,timestamp);""",
     # https://github.com/facebook/prophet/blob/v1.1.7/python/prophet/forecaster.py#L33-L83
     """CREATE TABLE IF NOT EXISTS models (
             name TEXT PRIMARY KEY,
@@ -141,11 +142,18 @@ def insert_measurement(name, time, value):
         cur = con.cursor()
         insert_sample(cur, name, time, value)
 
-def insert_multiple_measurements(name, csvUrl):
+def insert_multiple_measurements(name, csvUrl, timestampColumnName, valueColumnName):
     data = pd.read_csv(csvUrl)
-    data = data.rename(columns={"ds": "timestamp", "y": "value"})
+    print(f"fetching CSV from {csvUrl}")
+    print("original CSV structure:")
+    print(data)
+    print(f"\nrenaming '{timestampColumnName}' -> 'timestamp' and '{valueColumnName}' -> 'value'")
+    data = data.rename(columns={timestampColumnName: "timestamp", valueColumnName: "value"})
     data["name"]=name
-    print(f"inserting following data from CSV {csvUrl}")
+    print("data after column renaming:")
+    print(data)
+    data = data[["name","timestamp","value"]]
+    print(f"\ninserting following data:")
     print(data)
     with sqlite3.connect(db_file) as con:
         affectedRows = data.to_sql("metrics", con, if_exists="append", index=False)
