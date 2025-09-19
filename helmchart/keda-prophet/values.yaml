@@ -107,3 +107,33 @@ tolerations: []
 affinity: {}
 
 asciiArt: true
+
+extraObjects: []
+# - apiVersion: "cilium.io/v2"
+#   kind: CiliumNetworkPolicy
+#   metadata:
+#     name: "keda-prophet-netpol"
+#   spec:
+#     endpointSelector:
+#       matchLabels:
+#         app: keda-prophet
+#     egress:
+#       - toServices:
+#           k8sService:
+#             serviceName: keda-operator
+#             namespace: keda
+#         toPorts:
+#         - ports:
+#           - port: "9666"
+#             protocol: TCP
+#     ingress:
+#       - fromEntities:
+#         - world
+#         toPorts:
+#         - ports:
+#           - port: "8000"
+#             protocol: TCP
+#           - port: "8080"
+#             protocol: TCP
+#           - port: "8081"
+#             protocol: TCP

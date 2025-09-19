@@ -1,0 +1,237 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  annotations:
+    controller-gen.kubebuilder.io/version: v0.18.0
+    "helm.sh/resource-policy": keep
+  name: metricpredictors.kedify.io
+spec:
+  group: kedify.io
+  names:
+    kind: MetricPredictor
+    listKind: MetricPredictorList
+    plural: metricpredictors
+    shortNames:
+    - mp
+    singular: metricpredictor
+  scope: Namespaced
+  versions:
+  - additionalPrinterColumns:
+    - jsonPath: .status.conditions[?(@.type=="Retrained")].lastTransitionTime
+      name: LastRetrain
+      type: date
+    - jsonPath: .status.modelName
+      name: ModelName
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="Ready")].status
+      name: Ready
+      type: string
+    - jsonPath: .spec.source.scaledObject
+      name: ScaledObject
+      type: string
+    - jsonPath: .spec.source.triggerName
+      name: Trigger
+      type: string
+    - jsonPath: .metadata.creationTimestamp
+      name: Age
+      type: date
+    - jsonPath: .status.conditions[?(@.type=="Ready")].reason
+      name: State
+      priority: 10
+      type: string
+    - jsonPath: .spec.model.retrainInterval
+      name: RetrainInterval
+      priority: 10
+      type: string
+    - jsonPath: .status.conditions[?(@.type=="CSV")].reason
+      name: CSV
+      priority: 10
+      type: string
+    name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: MetricPredictor is the Schema for the metricpredictors API
+        properties:
+          apiVersion:
+            description: |-
+              APIVersion defines the versioned schema of this representation of an object.
+              Servers should convert recognized schemas to the latest internal value, and
+              may reject unrecognized values.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources
+            type: string
+          kind:
+            description: |-
+              Kind is a string value representing the REST resource this object represents.
+              Servers may infer this from the endpoint the client submits requests to.
+              Cannot be updated.
+              In CamelCase.
+              More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: |-
+              spec defines the desired state of MetricPredictor
+              .spec.model is optional, however .spec.source is always required
+            properties:
+              model:
+                description: Model further specifies the model itself.
+                properties:
+                  changepointPriorScale:
+                    type: string
+                  defaultHorizon:
+                    type: string
+                  holidays:
+                    type: string
+                  lookBackPeriod:
+                    minLength: 1
+                    pattern: ^(\d+y)?(\d+mo)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
+                    type: string
+                  name:
+                    type: string
+                  retrainInterval:
+                    minLength: 1
+                    pattern: ^(\d+y)?(\d+mo)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
+                    type: string
+                  seasonality:
+                    properties:
+                      custom:
+                        properties:
+                          fourierOrder:
+                            type: integer
+                          name:
+                            type: string
+                          period:
+                            minLength: 1
+                            pattern: ^(\d+y)?(\d+mo)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      daily:
+                        type: string
+                      mode:
+                        description: '''additive'' (default) or ''multiplicative''.'
+                        type: string
+                      weakly:
+                        type: string
+                      yearly:
+                        type: string
+                    type: object
+                  type:
+                    type: string
+                type: object
+              source:
+                description: Source describes the metric source for the predictive
+                  model.
+                properties:
+                  active:
+                    default: true
+                    description: |-
+                      Marks the metric subscription as ON or OFF. false -> ignore
+                      default: true
+                    type: boolean
+                  collectionInterval:
+                    default: 1m
+                    description: |-
+                      How often we should be ingesting the metric data for model
+                      KEDA typically send the metric each 15s, this way we can downsample the metrics and save space.
+                      default: 1m
+                      todo: this
+                    type: string
+                  oneShotCsv:
+                    description: Use this field for bootstraping the model with initial
+                      data.
+                    properties:
+                      active:
+                        default: true
+                        description: |-
+                          Marks the CSV source as ON or OFF. false -> ignore
+                          When the CSV is imported, it will update the .status sub-resource and subsequent ingestion will not be made.
+                          default: true
+                        type: boolean
+                      timestampColumnName:
+                        description: |-
+                          Name of column that contains timestamps in the referenced CSV file
+                          default: 'ds'
+                        type: string
+                      url:
+                        description: |-
+                          Url that points to a CSV file that should be used to bootstrap the model with initial metric data
+                          example: https://raw.githubusercontent.com/facebook/prophet/main/examples/example_wp_log_peyton_manning.csv
+                          it is assumed that first line of the file contains header with column names and CSV contains columns called 'ds' and 'y'.
+                          if not, use TimestampColumnName and ValueColumnName to select some other columns
+                        type: string
+                      valueColumnName:
+                        description: |-
+                          Name of column that contains the measured values in the referenced CSV file
+                          default: 'y'
+                        type: string
+                    type: object
+                  retention:
+                    default: 2y
+                    description: |-
+                      How long the metric data should be stored in the internal database.
+                      When calling retrain, we will delete the older metric data than this period
+                      default: 2y
+                    minLength: 1
+                    pattern: ^(\d+y)?(\d+mo)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
+                    type: string
+                  scaledObject:
+                    description: |-
+                      What ScaledObject should be used as metric source for this model.
+                      It is assumed that ScaledObject is located in the same namespace as MP resource.
+                    type: string
+                  triggerName:
+                    description: |-
+                      What trigger name in the referenced ScaledObject should be used as metric source for the model.
+                      The controller will subscribe to KEDA metrics and based on the trigger name and scaled object name,
+                      it will only those metrics that it is interested to
+                    type: string
+                required:
+                - scaledObject
+                - triggerName
+                type: object
+            required:
+            - source
+            type: object
+          status:
+            description: status defines the observed state of MetricPredictor
+            properties:
+              conditions:
+                description: The status of each condition is one of True, False, or
+                  Unknown.
+                items:
+                  properties:
+                    lastTransitionTime:
+                      format: date-time
+                      type: string
+                    message:
+                      description: A human-readable message indicating details about
+                        the transition.
+                      type: string
+                    reason:
+                      description: The reason for the condition's last transition.
+                      type: string
+                    status:
+                      description: Status of the condition, one of True, False, Unknown.
+                      type: string
+                    type:
+                      description: Type of condition
+                      type: string
+                  required:
+                  - status
+                  - type
+                  type: object
+                type: array
+              modelName:
+                type: string
+            type: object
+        required:
+        - spec
+        type: object
+    served: true
+    storage: true
+    subresources:
+      status: {}

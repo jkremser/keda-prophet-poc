@@ -79,13 +79,13 @@ spec:
           readinessProbe:
             httpGet:
               path: /readyz
-              port: 8081
+              port: 8082
             initialDelaySeconds: 5
             periodSeconds: 10
           livenessProbe:
             httpGet:
               path: /healthz
-              port: 8081
+              port: 8082
             initialDelaySeconds: 15
             periodSeconds: 20
           resources:
@@ -109,18 +109,22 @@ spec:
             defaultMode: 420
             secretName: kedaorg-certs
       {{- end }}
-      {{- with .Values.nodeSelector }}
+      
       {{- if .Values.kedaPredictionController.enabled }}
-      serviceAccountName: {{ include "keda-prophet.fullname" . }}
-      {{- end }}
+      serviceAccount: {{ include "keda-prophet.fullname" . }}
+      {{- end -}}
+
+      {{- with .Values.nodeSelector }}
       nodeSelector:
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- end -}}
+      
       {{- with .Values.affinity }}
       affinity:
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- end -}}
+      
       {{- with .Values.tolerations }}
       tolerations:
         {{- toYaml . | nindent 8 }}
-      {{- end }}
+      {{- end -}}
