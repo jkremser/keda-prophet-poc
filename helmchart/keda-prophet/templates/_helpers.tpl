@@ -48,6 +48,7 @@ Selector labels
 {{- define "keda-prophet.selectorLabels" -}}
 app.kubernetes.io/name: {{ include "keda-prophet.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
+app: keda-prophet
 {{- end }}
 
 {{/*

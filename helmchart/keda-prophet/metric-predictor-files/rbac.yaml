@@ -1,4 +1,3 @@
-{{- if .Values.kedaPredictionController.enabled }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -12,7 +11,7 @@ metadata:
   name: {{ include "keda-prophet.fullname" . }}-manager-role
 rules:
 - apiGroups:
-  - kedify.io.kedify.io
+  - kedify.io
   resources:
   - metricpredictors
   verbs:
@@ -24,13 +23,13 @@ rules:
   - update
   - watch
 - apiGroups:
-  - kedify.io.kedify.io
+  - kedify.io
   resources:
   - metricpredictors/finalizers
   verbs:
   - update
 - apiGroups:
-  - kedify.io.kedify.io
+  - kedify.io
   resources:
   - metricpredictors/status
   verbs:
@@ -103,4 +102,3 @@ subjects:
   name: {{ include "keda-prophet.fullname" . }}
   namespace: {{ .Release.Namespace }}
 ---
-{{- end }}
