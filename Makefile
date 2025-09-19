@@ -5,6 +5,7 @@ VERSION 	?= main
 GIT_COMMIT  ?= $(shell git rev-list -1 HEAD)
 CONTAINER_IMAGE ?= ghcr.io/kedify/keda-prophet
 DEV_LOG_LVL ?= info
+PORT ?= 8000
 # DEV_LOG_LVL ?= trace
 ARCH ?= $(shell uname -m)
 ifeq ($(ARCH), x86_64)
@@ -35,7 +36,7 @@ run-dev: ## Runs the REST api
 	@$(call say,Starting REST api)
 	python3 -m venv venv && \
 	source venv/bin/activate && \
-	python3 -m uvicorn app.main:app --log-level $(DEV_LOG_LVL) --reload
+	python3 -m uvicorn app.main:app --log-level $(DEV_LOG_LVL) --port $(PORT) --reload
 
 .PHONY: run-dev-fill-db
 run-dev-fill-db: ## Runs the REST api with pre-filled database

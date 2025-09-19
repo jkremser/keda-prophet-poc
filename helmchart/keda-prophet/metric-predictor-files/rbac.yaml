@@ -11,6 +11,13 @@ metadata:
   name: {{ include "keda-prophet.fullname" . }}-manager-role
 rules:
 - apiGroups:
+  - ""
+  resources:
+  - events
+  verbs:
+  - create
+  - patch
+- apiGroups:
   - kedify.io
   resources:
   - metricpredictors

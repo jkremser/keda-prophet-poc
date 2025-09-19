@@ -1,6 +1,6 @@
 # main.py
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import RedirectResponse, StreamingResponse
 import logging
 import os
@@ -11,7 +11,7 @@ from datetime import datetime, timedelta
 
 from .common_utils import to_bool
 from .model_utils import generate_forecast, generate_graph_bytes
-from .db_utils import feed_db, retrain_and_save, insert_measurement, insert_multiple_measurements, upsert_mod, list_models_db, delete, reset_database, init_database
+from .db_utils import feed_db, retrain_and_save, insert_measurement, insert_multiple_measurements, upsert_mod, list_models_db, get_model, delete, reset_database, init_database
 
 description = """
 KEDA Prophet - Exposing multiple Prophet models via REST api for KEDA. 🚀
@@ -28,7 +28,7 @@ logger = logging.getLogger('uvicorn.info')
 db_ready = False
 
 # Input schemas
-class CreateModelRequest(BaseModel):
+class Model(BaseModel):
     name: str
     yearly_seasonality: str | None = "False" # optional, default: False Can be 'auto', True, False, or a number of Fourier terms to generate.
     weekly_seasonality: str | None = "auto" # optional, default: 'auto'
@@ -66,7 +66,7 @@ def docs_redirect():
 @app.post("/models/", include_in_schema=False)
 @app.put("/models", include_in_schema=False)
 @app.put("/models/", include_in_schema=False)
-def upsert_model(request: CreateModelRequest):
+def upsert_model(request: Model):
     try:
         upsert_mod(request)
         return {"message": f"Model params for model {request.name} have been stored."}
@@ -74,6 +74,24 @@ def upsert_model(request: CreateModelRequest):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/models/{model}", description="Info about the model parameters.")
+@app.get("/models/{model}/", include_in_schema=False)
+def get_model_info(model):
+    try:
+        m_row = get_model(model)
+        m = Model(
+            name = model,
+            yearly_seasonality = m_row[0],
+            weekly_seasonality = m_row[1],
+            daily_seasonality = m_row[2],
+            custom_seasonality_period = m_row[3],
+            custom_seasonality_fourier_order = m_row[4],
+            seasonality_mode = m_row[5],
+        )
+        return Response(content=m.model_dump_json(), media_type='application/json')
+    except Exception as e:
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.post("/models/{model}/predict", response_model=ForecastResponse, description="Asks for the future prediction of the model.")
 def predict(model, request: ForecastRequest):
