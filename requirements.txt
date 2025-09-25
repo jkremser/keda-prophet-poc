@@ -1,4 +1,5 @@
 numpy
+colorama
 fastapi
 uvicorn
 pandas
