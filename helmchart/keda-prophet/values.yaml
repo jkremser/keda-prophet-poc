@@ -13,7 +13,12 @@ image:
 
 settings:
   logs:
+    # -- Can be one of 'debug', 'info', 'error', or any integer value > 0
+    # which corresponds to custom debug levels of increasing verbosity
     logLvl: info
+
+    # -- one of: info, error, panic
+    stackTracesLvl: error
   storage:
     modelsPvcSize: 500Mi
     dbPvcSize: 500Mi
