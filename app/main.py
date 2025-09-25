@@ -8,6 +8,10 @@ import traceback
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime, timedelta
+import colorama
+from colorama import init as colorama_init
+from colorama import Fore
+from colorama import Style
 
 from .common_utils import to_bool
 from .model_utils import generate_forecast, generate_graph_bytes
@@ -263,11 +267,17 @@ class EndpointFilter(logging.Filter):
 logging.getLogger("uvicorn.access").addFilter(EndpointFilter())
 
 def init():
+    colorama_init()
     global db_ready
     logger.info("KEDA Prophet API is starting up")
     logger.info("-------------------------------")
     logger.info(f"Version: {os.getenv("VERSION", "main")}")
     logger.info(f"Git Sha: {os.getenv("GIT_SHA", "main")}")
+    logger.info("-------------------------------")
+    logger.info(f"{Fore.BLUE}    ▖▖▄▖▄ ▄▖{Fore.WHITE}  ▄▖      ▌   ▗ {Style.RESET_ALL}")
+    logger.info(f"{Fore.BLUE}    ▙▘▙▖▌▌▌▌{Fore.WHITE}  ▙▌▛▘▛▌▛▌▛▌█▌▜▘{Style.RESET_ALL}")
+    logger.info(f"{Fore.BLUE}    ▌▌▙▖▙▘▛▌{Fore.WHITE}  ▌ ▌ ▙▌▙▌▌▌▙▖▐▖{Style.RESET_ALL}")
+    logger.info(f"{Fore.BLUE}            {Fore.WHITE}        ▌       {Style.RESET_ALL}")
     init_database()
     db_ready = True
 
