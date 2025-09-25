@@ -45,6 +45,8 @@ spec:
             - --keda-metrics-address={{ .Values.kedaPredictionController.kedaMetricsAddress }}
             - --keda-prophet-address=:8000
             - --internal-metrics-bind-address=:8081
+            - --zap-log-level={{ .Values.settings.logs.logLvl }}
+            - --zap-stacktrace-level={{ .Values.settings.logs.stackTracesLvl }}
           volumeMounts:
             - name: certs
               mountPath: /etc/tls
