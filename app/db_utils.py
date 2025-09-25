@@ -7,7 +7,7 @@ import sys
 import csv
 from numpy import random
 from datetime import date,timedelta
-from .model_utils import train_and_save, delete_serialized_model
+from .model_utils import train_and_save, delete_serialized_model, parseModelParams
 
 db_file = os.getenv("DB_FILE", "data/db.sqlite")
 
@@ -181,7 +181,7 @@ def get_model(name):
         cur = con.cursor()
         cur.execute(get_model_q, (name,))
         rows = cur.fetchone()
-        return rows
+        return parseModelParams(rows)
 
 def list_models_db():
     with sqlite3.connect(db_file) as con:

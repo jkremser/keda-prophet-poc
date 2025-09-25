@@ -74,25 +74,6 @@ def upsert_model(request: Model):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/{model}", description="Info about the model parameters.")
-@app.get("/models/{model}/", include_in_schema=False)
-def get_model_info(model):
-    try:
-        m_row = get_model(model)
-        m = Model(
-            name = model,
-            yearly_seasonality = m_row[0],
-            weekly_seasonality = m_row[1],
-            daily_seasonality = m_row[2],
-            custom_seasonality_period = m_row[3],
-            custom_seasonality_fourier_order = m_row[4],
-            seasonality_mode = m_row[5],
-        )
-        return Response(content=m.model_dump_json(), media_type='application/json')
-    except Exception as e:
-        print(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=str(e))
-
 @app.post("/models/{model}/predict", response_model=ForecastResponse, description="Asks for the future prediction of the model.")
 def predict(model, request: ForecastRequest):
     try:
@@ -142,6 +123,25 @@ def list_models():
     try:
         models = list_models_db()
         return models
+    except Exception as e:
+        print(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/models/{model}", description="Info about the model parameters.")
+@app.get("/models/{model}/", include_in_schema=False)
+def get_model_info(model):
+    try:
+        m = get_model(model)
+        m = Model(
+            name = model,
+            yearly_seasonality = str(m.yearly_seasonality),
+            weekly_seasonality = str(m.weekly_seasonality),
+            daily_seasonality = str(m.daily_seasonality),
+            custom_seasonality_period = m.custom_seasonality_period,
+            custom_seasonality_fourier_order = m.custom_seasonality_fourier_order,
+            seasonality_mode = m.seasonality_mode,
+        )
+        return Response(content=m.model_dump_json(), media_type='application/json')
     except Exception as e:
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))

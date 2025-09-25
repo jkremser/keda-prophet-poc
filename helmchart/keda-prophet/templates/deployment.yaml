@@ -29,42 +29,14 @@ spec:
       securityContext:
         {{- toYaml . | nindent 8 }}
       {{- end }}
+      {{- if .Values.kedaPredictionController.enabled }}
+      initContainers:
+        {{- include "prophet.container" . | nindent 8 }}
+      {{- end }}
       containers:
-        - name: keda-prophet
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag | default .Chart.AppVersion }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          ports:
-            - name: http
-              containerPort: {{ .Values.service.port }}
-              protocol: TCP
-          env:
-            - name: DB_FILE
-              value: {{ .Values.settings.storage.dbFile }}
-            - name: MODELS_PATH
-              value: {{ .Values.settings.storage.modelsPath }}
-          args:
-            - --log-level={{ .Values.settings.logs.logLvl }}
-          {{- with .Values.livenessProbe }}
-          livenessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.readinessProbe }}
-          readinessProbe:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.resources }}
-          resources:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.securityContext }}
-          securityContext:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-          {{- with .Values.volumeMounts }}
-          volumeMounts:
-            {{- toYaml . | nindent 12 }}
-          {{- end }}
-        {{- if .Values.kedaPredictionController.enabled }}
+        {{- if not .Values.kedaPredictionController.enabled }}
+        {{- include "prophet.container" . | nindent 8 }}
+        {{- else }}
         - name: prediction-controller
           image: {{ .Values.kedaPredictionController.image.repository }}:{{ .Values.kedaPredictionController.image.tag }}
           imagePullPolicy: {{ .Values.kedaPredictionController.image.pullPolicy }}
