@@ -78,7 +78,10 @@ def delete_serialized_model(model_name):
         print(traceback.format_exc())
 
 def train_and_save(model_name, params, df):
-    parsed_params: ModelParams = parseModelParams(params)
+    if isinstance(params, ModelParams):
+        parsed_params = params
+    else:
+        parsed_params: ModelParams = parseModelParams(params)
     print(f"Training model {model_name} using following model params:")
     print(parsed_params)
     model = Prophet(
