@@ -51,6 +51,11 @@ spec:
           volumeMounts:
             - name: certs
               mountPath: /etc/tls
+          startupProbe:
+            httpGet:
+              path: /readiness
+              port: {{ .Values.service.port }}
+            periodSeconds: 10
           readinessProbe:
             httpGet:
               path: /readyz

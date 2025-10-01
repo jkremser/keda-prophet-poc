@@ -1,7 +1,7 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "keda-prophet.name" -}}
+{{- define "kedify-predictor.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
@@ -10,7 +10,7 @@ Create a default fully qualified app name.
 We truncate at 63 chars because some Kubernetes name fields are limited to this (by the DNS naming spec).
 If release name contains chart name it will be used as a full name.
 */}}
-{{- define "keda-prophet.fullname" -}}
+{{- define "kedify-predictor.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -26,16 +26,16 @@ If release name contains chart name it will be used as a full name.
 {{/*
 Create chart name and version as used by the chart label.
 */}}
-{{- define "keda-prophet.chart" -}}
+{{- define "kedify-predictor.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels
 */}}
-{{- define "keda-prophet.labels" -}}
-helm.sh/chart: {{ include "keda-prophet.chart" . }}
-{{ include "keda-prophet.selectorLabels" . }}
+{{- define "kedify-predictor.labels" -}}
+helm.sh/chart: {{ include "kedify-predictor.chart" . }}
+{{ include "kedify-predictor.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -45,18 +45,18 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels
 */}}
-{{- define "keda-prophet.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "keda-prophet.name" . }}
+{{- define "kedify-predictor.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "kedify-predictor.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
-app: keda-prophet
+app: kedify-predictor
 {{- end }}
 
 {{/*
 Create the name of the service account to use
 */}}
-{{- define "keda-prophet.serviceAccountName" -}}
+{{- define "kedify-predictor.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "keda-prophet.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "kedify-predictor.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}

@@ -24,4 +24,5 @@
 
 # Custom
 keda-prophet*.tgz
+kedify-predictor*.tgz
 _helm-docs-*

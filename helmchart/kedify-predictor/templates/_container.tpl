@@ -14,8 +14,6 @@
       value: {{ .Values.settings.storage.dbFile }}
     - name: MODELS_PATH
       value: {{ .Values.settings.storage.modelsPath }}
-  args:
-    - --log-level={{ .Values.settings.logs.logLvl }}
   {{- with .Values.livenessProbe }}
   livenessProbe:
     {{- toYaml . | nindent 12 }}

@@ -15,8 +15,7 @@ from colorama import Style
 
 from .common_utils import to_bool
 from .model_utils import generate_forecast, generate_graph_bytes
-from .db_utils import feed_db, retrain_and_save, insert_measurement, insert_multiple_measurements, upsert_mod, list_models_db, get_model, delete, reset_database, init_database
-
+from .db_utils import *
 description = """
 KEDA Prophet - Exposing multiple Prophet models via REST api for KEDA. 🚀
 
@@ -34,16 +33,17 @@ db_ready = False
 # Input schemas
 class Model(BaseModel):
     name: str
-    yearly_seasonality: str | None = "False" # optional, default: False Can be 'auto', True, False, or a number of Fourier terms to generate.
-    weekly_seasonality: str | None = "auto" # optional, default: 'auto'
-    daily_seasonality: str | None = "auto"  # optional, default: 'auto'
-    custom_seasonality_period: float | None = 0 # in days, so 1/24 represents hourly
-    custom_seasonality_fourier_order: int | None = 0
-    seasonality_mode: str | None = "additive" # 'additive' (default) or 'multiplicative'.
-
-class ForecastRequest(BaseModel):
-    start_date: str  # e.g., "2025-05-01 00:00:00"
-    periods: int     # Number of future hours to predict
+    yearly_seasonality: str | None = "False"              # 0 optional, default: False Can be 'auto', True, False, or a number of Fourier terms to generate.
+    weekly_seasonality: str | None = "auto"               # 1 optional, default: 'auto'
+    daily_seasonality: str | None = "auto"                # 2 optional, default: 'auto'
+    custom_seasonality_name: str | None = None            # 3 in days, so 1/24 represents hourly
+    custom_seasonality_period: float | None = None        # 4 in days, so 1/24 represents hourly
+    custom_seasonality_fourier_order: int | None = None   # 5
+    seasonality_mode: str | None = "additive"             # 6 'additive' (default) or 'multiplicative'
+    holidays: str | None = None                           # 7 optional, default: 'None' ISO country code w/ holidays
+    holidays_prior_scale: float | None = None             # 8 how much the holiday should influence the prediction
+    changepoint_prior_scale: float | None = None          # 9 Increasing it will make the trend more flexible
+    default_horizon: str | None = "2m"                    # 10
 
 class MetricStoreRequest(BaseModel):
     date: str      # e.g., "2025-05-01 00:00:00"
@@ -58,6 +58,9 @@ class MetricCsvStoreRequest(BaseModel):
 class ForecastPoint(BaseModel):
     ds: str
     yhat: float
+    yhat_lower: float
+    yhat_upper: float
+    confidence: float
 
 class ForecastResponse(BaseModel):
     forecast: List[ForecastPoint]
@@ -78,14 +81,19 @@ def upsert_model(request: Model):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.post("/models/{model}/predict", response_model=ForecastResponse, description="Asks for the future prediction of the model.")
-def predict(model, request: ForecastRequest):
+@app.get("/models/{model}/predict", response_model=ForecastResponse, description="Asks for the future prediction of the model.")
+def predict(model, horizon: str|None = None):
     try:
-        forecast_df = generate_forecast(request.start_date, request.periods, model)
+        if horizon is None:
+            horizon = get_default_horizon(model)
+        forecast_df = generate_forecast(horizon, model)
         response = [
             ForecastPoint(
                 ds=row.ds.strftime("%Y-%m-%d %H:%M:%S"),
-                yhat=round(row.yhat, 2)
+                yhat=round(row.yhat, 2),
+                yhat_upper=round(row.yhat_upper, 2),
+                yhat_lower=round(row.yhat_lower, 2),
+                confidence=round(((row.yhat_upper-row.yhat_lower)/row.yhat_upper), 2)
             ) for row in forecast_df.itertuples()
         ]
         return {"forecast": response}
@@ -138,14 +146,19 @@ def get_model_info(model):
         m = get_model(model)
         m = Model(
             name = model,
-            yearly_seasonality = str(m.yearly_seasonality),
-            weekly_seasonality = str(m.weekly_seasonality),
-            daily_seasonality = str(m.daily_seasonality),
-            custom_seasonality_period = m.custom_seasonality_period,
-            custom_seasonality_fourier_order = m.custom_seasonality_fourier_order,
-            seasonality_mode = m.seasonality_mode,
+            yearly_seasonality = str(m.yearly_seasonality),                        # 0
+            weekly_seasonality = str(m.weekly_seasonality),                        # 1
+            daily_seasonality = str(m.daily_seasonality),                          # 2
+            custom_seasonality_name= m.custom_seasonality_name,                    # 3
+            custom_seasonality_period = m.custom_seasonality_period,               # 4
+            custom_seasonality_fourier_order = m.custom_seasonality_fourier_order, # 5
+            seasonality_mode = m.seasonality_mode,                                 # 6
+            holidays = m.holidays,                                                 # 7
+            holidays_prior_scale = m.holidays_prior_scale,                         # 8
+            changepoint_prior_scale = m.changepoint_prior_scale,                   # 9
+            default_horizon = m.default_horizon,                                   # 10
         )
-        return Response(content=m.model_dump_json(), media_type='application/json')
+        return Response(content=m.model_dump_json(exclude_none=True, indent=2), media_type='application/json')
     except Exception as e:
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))

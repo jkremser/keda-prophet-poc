@@ -13,6 +13,5 @@ spec:
       nodePort: {{ . }}
       {{- end }}
       protocol: TCP
-      name: http
   selector:
     {{- include "keda-prophet.selectorLabels" . | nindent 4 }}
