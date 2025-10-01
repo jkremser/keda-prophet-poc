@@ -27,10 +27,14 @@ spec:
         - jsonPath: .status.conditions[?(@.type=="Ready")].status
           name: Ready
           type: string
-        - jsonPath: .spec.source.scaledObject
-          name: ScaledObject
+        - jsonPath: .spec.source.keda.name
+          name: Source
           type: string
-        - jsonPath: .spec.source.triggerName
+        - jsonPath: .spec.source.keda.kind
+          name: Kind
+          priority: 10
+          type: string
+        - jsonPath: .spec.source.keda.triggerName
           name: Trigger
           type: string
         - jsonPath: .metadata.creationTimestamp
@@ -79,47 +83,117 @@ spec:
                   description: Model further specifies the model itself.
                   properties:
                     changepointPriorScale:
+                      description: |-
+                        By default, this parameter is set to 0.1. Increasing it will make the trend more flexible.
+                        Large values will allow many changepoints, small values will allow few changepoints.
+                        https://facebook.github.io/prophet/docs/trend_changepoints.html#automatic-changepoint-detection-in-prophet
                       type: string
                     defaultHorizon:
+                      default: 1m
+                      description: |-
+                        When asking the trained model for predictions, what interval, to the future, should be used from now.
+                        default: "1m"
                       type: string
                     holidays:
-                      type: string
+                      properties:
+                        countryCode:
+                          default: US
+                          description: |-
+                            Country code for holidays (ISO 3166-1 alpha-2), if left empty, no holidays will be used.
+                            Example: "US","CZ","CA","CN","DE","JP", etc.
+                            default: US
+                          type: string
+                        strength:
+                          default: "10"
+                          description: |-
+                            Parameter (float) modulating the strength of the holiday components model
+                            corresponds to holidays_prior_scale parameter in Prophet
+                            Reducing this parameter dampens holiday effects
+                            default: 10
+                          type: string
+                      type: object
                     lookBackPeriod:
+                      default: 2y
+                      description: |-
+                        When retraining the model to fit the data. What portion of the data should be used. If not specified or set to 0,
+                        all the available measurements will be used, otherwise only those from interval [now-lookBackPeriod, now]
+                        default: "2y"
                       minLength: 1
                       pattern: ^(\d+y)?(\d+mo)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
                       type: string
                     name:
+                      description: |-
+                        Explicit name for the model, if not provided it will be inferred from this MetricPredictor CR instance metadata
+                        default: "{namespace}*{name}"
                       type: string
                     retrainInterval:
+                      default: 1h
+                      description: How often the model should be automatically retrained to fit the new data.
                       minLength: 1
                       pattern: ^(\d+y)?(\d+mo)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
                       type: string
                     seasonality:
+                      description: Further specifies the seasonality patterns that model should be looking for.
                       properties:
                         custom:
+                          description: |-
+                            Allows to specify custom length and resolution of the seasonality pattern to look for.
+                            By default, we create for each model also 6-hr custom seasonality called 'six' with fourierOrder=10.
                           properties:
                             fourierOrder:
+                              default: 16
+                              description: |-
+                                Number of components of Fourier series approximation
+                                https://en.wikipedia.org/wiki/Fourier_series
+                                higher numbers can capture more sophisticated seasonal patterns, but can also
+                                lead to model overfitting. In a broader sense this can be thought of as 'resolution'.
+                                default: 16
                               type: integer
                             name:
+                              description: Name of the custom seasonality, it will be displayed on the component graph
+                              minLength: 1
                               type: string
                             period:
+                              description: |-
+                                Custom length of the expected seasonal pattern. For example if we expect our data to
+                                exhibit an 8-hour repeating pattern, put 8h here.
                               minLength: 1
                               pattern: ^(\d+y)?(\d+mo)?(\d+d)?(\d+h)?(\d+m)?(\d+s)?$
                               type: string
                           required:
                             - name
+                            - period
                           type: object
                         daily:
+                          default: auto
+                          description: Can be 'auto' (default), 'true', 'false', or a number of Fourier terms to generate (all passed as string).
+                          pattern: ^([Aa]uto)|([Tt]rue)|([Ff]alse)|(\d+)$
                           type: string
                         mode:
-                          description: '''additive'' (default) or ''multiplicative''.'
+                          default: additive
+                          description: |-
+                            'additive' (default) or 'multiplicative'.
+                            https://facebook.github.io/prophet/docs/multiplicative_seasonality.html
+                          enum:
+                            - additive
+                            - multiplicative
                           type: string
                         weakly:
+                          default: auto
+                          description: Can be 'auto' (default), 'true', 'false', or a number of Fourier terms to generate (all passed as string).
+                          pattern: ^([Aa]uto)|([Tt]rue)|([Ff]alse)|(\d+)$
                           type: string
                         yearly:
+                          default: "false"
+                          description: Can be 'auto', 'true', 'false' (default), or a number of Fourier terms to generate (all passed as string).
+                          pattern: ^([Aa]uto)|([Tt]rue)|([Ff]alse)|(\d+)$
                           type: string
                       type: object
                     type:
+                      default: prophet
+                      description: |-
+                        What type of model predictor should be used, allowed values: prophet
+                        default: prophet
                       type: string
                   type: object
                 source:
@@ -139,6 +213,41 @@ spec:
                         default: 1m
                         todo: this
                       type: string
+                    keda:
+                      description: Further describes KEDA metric resource.
+                      properties:
+                        kind:
+                          description: |-
+                            Kind can be either 'scaledjob' or 'scaledobject'
+                            default: scaledobject
+                          enum:
+                            - scaledjob
+                            - scaledobject
+                          type: string
+                        metricIndex:
+                          default: 0
+                          description: |-
+                            MetricIndex specifies the index of the metrics array returned from KEDA's raw metric stream.
+                            That selects the correct metric for the model. Most of the time the array contains just one element,
+                            however there might be KEDA scalers that returns two independent values.
+                            If all the values in the array should be used to feed the model, put -1 here.
+                            default: 0
+                          type: integer
+                        name:
+                          description: Name of the ScaledObject or ScaledJob located in the same namespace as this MetricPredictor resource
+                          minLength: 1
+                          type: string
+                        triggerName:
+                          description: |-
+                            What trigger name in the referenced Scaled{Object,Job} should be used as metric source for the model.
+                            The controller will subscribe to KEDA metrics and based on the trigger name and scaled object name,
+                            it will only those metrics that it is interested to
+                          minLength: 1
+                          type: string
+                      required:
+                        - name
+                        - triggerName
+                      type: object
                     oneShotCsv:
                       description: Use this field for bootstraping the model with initial data.
                       properties:
@@ -150,6 +259,7 @@ spec:
                             default: true
                           type: boolean
                         timestampColumnName:
+                          default: ds
                           description: |-
                             Name of column that contains timestamps in the referenced CSV file
                             default: 'ds'
@@ -162,10 +272,13 @@ spec:
                             if not, use TimestampColumnName and ValueColumnName to select some other columns
                           type: string
                         valueColumnName:
+                          default: "y"
                           description: |-
                             Name of column that contains the measured values in the referenced CSV file
                             default: 'y'
                           type: string
+                      required:
+                        - url
                       type: object
                     retention:
                       default: 2y
@@ -181,16 +294,12 @@ spec:
                         What ScaledObject should be used as metric source for this model.
                         It is assumed that ScaledObject is located in the same namespace as MP resource.
                       type: string
-                    triggerName:
-                      description: |-
-                        What trigger name in the referenced ScaledObject should be used as metric source for the model.
-                        The controller will subscribe to KEDA metrics and based on the trigger name and scaled object name,
-                        it will only those metrics that it is interested to
-                      type: string
-                  required:
-                    - scaledObject
-                    - triggerName
                   type: object
+                  x-kubernetes-validations:
+                    - message: When Scaled{Object,Job} is used as metric source, trigger name and name must be both specified
+                      rule: has(self.keda) && (has(self.keda.name) == has(self.keda.triggerName))
+                    - message: 'At least one of the fields: ''keda'' or ''oneShotCsv'' must be specified'
+                      rule: has(self.keda) || has(self.oneShotCsv)
               required:
                 - source
               type: object
@@ -222,6 +331,7 @@ spec:
                     type: object
                   type: array
                 modelName:
+                  description: Name of the ML model that is used for forecasting.
                   type: string
               type: object
           required:

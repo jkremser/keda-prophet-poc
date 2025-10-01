@@ -1,6 +1,6 @@
 apiVersion: v2
-name: keda-prophet
-description: A Helm chart for KEDA Prophet (time-series forecaster)
+name: kedify-predictor
+description: A Helm chart for Kedify Predictor (time-series forecaster)
 type: application
 version: v0.0.1
 appVersion: v0.0.1

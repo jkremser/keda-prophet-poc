@@ -8,33 +8,31 @@ from prophet import Prophet
 from prophet.plot import add_changepoints_to_plot
 from pydantic import BaseModel
 import pickle
-from datetime import datetime, timedelta
+from datetime import datetime, timezone
 import matplotlib
 import traceback
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
+from timelength import TimeLength
 
 
 models_path = os.getenv("MODELS_PATH", "model/")
 
-# Load model
-# with open("model/prophet.json", "rb") as fjson:
-#     model = model_from_json(fjson.read())
-
-def generate_forecast(start_date: str, periods: int, name: str) -> pd.DataFrame:
+def generate_forecast(horizon: str | None, name: str) -> pd.DataFrame:
     with open(f"{models_path}/prophet-{name}.pkl", "rb") as f:
         model = pickle.load(f)
-        start_dt = datetime.strptime(start_date, "%Y-%m-%d %H:%M:%S")
+        tl = TimeLength(horizon)
+        start_dt = tl.hence(base=datetime.now(timezone.utc)).strftime("%Y-%m-%d %H:%M:%S")
 
         # Create future dataframe
-        future = pd.date_range(start=start_dt, periods=periods, freq="h")
+        future = pd.date_range(start=start_dt, periods=1, freq=str(int(tl.to_minutes()))+"min")
         future_df = pd.DataFrame({"ds": future})
 
         # Predict
         forecast = model.predict(future_df)
 
         # Filter required fields (yhat and ds are names expected by prophet)
-        return forecast[["ds", "yhat"]]
+        return forecast[["ds", "yhat", "yhat_lower", "yhat_upper"]]
 
 def generate_graph_bytes(data_start_date: str|None, prediction_start_date: str, include_legend: bool, uncertainty: bool, trend: bool, periods: int, name: str, freq: str, components = False) -> pd.DataFrame:
     with open(f"{models_path}/prophet-{name}.pkl", "rb") as f:
@@ -46,10 +44,6 @@ def generate_graph_bytes(data_start_date: str|None, prediction_start_date: str, 
         # Predict
         forecast = model.predict(future_df)
 
-            # bar = forecast[forecast["ds"] >= data_start_date]
-
-        # print(bar)
-
         if components:
             fig = model.plot_components(forecast, uncertainty=uncertainty)
         else:
@@ -58,7 +52,6 @@ def generate_graph_bytes(data_start_date: str|None, prediction_start_date: str, 
                 add_changepoints_to_plot(fig.gca(), model, forecast)
 
         if data_start_date:
-            print("sdfsfd")
             ax = fig.gca()
             ax.set_xlim(pd.to_datetime([data_start_date, forecast["ds"].max()]))
 
@@ -85,16 +78,24 @@ def train_and_save(model_name, params, df):
     print(f"Training model {model_name} using following model params:")
     print(parsed_params)
     model = Prophet(
-        changepoint_prior_scale=0.01,
+        changepoint_prior_scale=parsed_params.changepoint_prior_scale,
         yearly_seasonality=parsed_params.yearly_seasonality,
         weekly_seasonality=parsed_params.weekly_seasonality,
         daily_seasonality=parsed_params.daily_seasonality,
         seasonality_mode=parsed_params.seasonality_mode,
     )
+    if parsed_params.has_holidays:
+        model.holidays_prior_scale = parsed_params.holidays_prior_scale
+        model.add_country_holidays(parsed_params.country_holidays)
+
     # by default, add six-hour seasonality
     model.add_seasonality(name='six', period=6/24, fourier_order=10)
     if parsed_params.has_custom_seasonality:
-        model.add_seasonality(name='custom', period=parsed_params.custom_seasonality_period, fourier_order=parsed_params.custom_seasonality_fourier_order)
+        model.add_seasonality(
+            name=parsed_params.custom_seasonality_name,
+            period=parsed_params.custom_seasonality_period,
+            fourier_order=parsed_params.custom_seasonality_fourier_order,
+        )
     # Train model
     model.fit(df)
 
@@ -103,21 +104,24 @@ def train_and_save(model_name, params, df):
     p = os.path.abspath(f"{models_path}/prophet-{model_name}.pkl")
     with open(p, "wb") as f:
         pickle.dump(model, f)
-    # with open("model/prophet.json", "w") as fjson:
-    #     fjson.write(model_to_json(model))
 
     print(f"✅ Model trained and saved to {p}")
     print(f"Size on disk: {human_readable_size(os.path.getsize(p))}")
-    # print("✅ Model trained and saved to model/prophet.json")
 
 class ModelParams(BaseModel):
     yearly_seasonality: str | bool | int
     weekly_seasonality: str | bool | int
     daily_seasonality: str | bool | int
     seasonality_mode: str
-    has_custom_seasonality: bool
-    custom_seasonality_period: float
-    custom_seasonality_fourier_order: int
+    has_custom_seasonality: bool = False
+    custom_seasonality_name: str = None
+    custom_seasonality_period: float = None
+    custom_seasonality_fourier_order: int = None
+    has_holidays: bool = False
+    holidays: str | None = None
+    holidays_prior_scale: float | None = None
+    changepoint_prior_scale: float
+    default_horizon: str
 
 def parseModelParams(params):
     if params == None:
@@ -127,33 +131,40 @@ def parseModelParams(params):
         yearly_seasonality=parseSeasonality(params[0]),
         weekly_seasonality=parseSeasonality(params[1]),
         daily_seasonality=parseSeasonality(params[2]),
-        seasonality_mode=params[5],
-        has_custom_seasonality=params[3] > 0 and params[4] > 0,
-        custom_seasonality_period=params[3],
-        custom_seasonality_fourier_order=params[4],
+        has_custom_seasonality=params[3] > 0 and params[4] > 0 and params[5] > 0,
+        custom_seasonality_name=params[3],
+        custom_seasonality_period=params[4],
+        custom_seasonality_fourier_order=params[5],
+        seasonality_mode=params[6],
+        has_holidays=len(params[7]) > 0 and params[8] > 0,
+        holidays = params[7],
+        holidays_prior_scale = params[8],
+        changepoint_prior_scale = params[9],
+        default_horizon = params[10],
     )
 
 def parseSeasonality(seasonality):
     match seasonality:
-        case "False":
+        case "False" | "false":
             return False
-        case "True":
+        case "True" | "true":
             return True
-        case "auto":
+        case "Auto" | "auto":
             return "auto"
+        # number
         case _:
             return seasonality
 
 def get_default_model_params():
-    return ModelParams(
+    m = ModelParams(
         yearly_seasonality=False,
-        weekly_seasonality=True,
-        daily_seasonality=True,
+        weekly_seasonality="auto",
+        daily_seasonality="auto",
         seasonality_mode="additive",
-        has_custom_seasonality=True,
-        custom_seasonality_period=0.04167,
-        custom_seasonality_fourier_order=4,
+        changepoint_prior_scale=.1,
+        default_horizon="2m",
     )
+    return m
 
 def human_readable_size(size, decimal_places=2):
     for unit in ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB']:

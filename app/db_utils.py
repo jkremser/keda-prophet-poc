@@ -8,69 +8,9 @@ import csv
 from numpy import random
 from datetime import date,timedelta
 from .model_utils import train_and_save, delete_serialized_model, parseModelParams
+from .db_schema import *
 
 db_file = os.getenv("DB_FILE", "data/db.sqlite")
-
-insert_measurement_q = ''' INSERT INTO metrics(name,timestamp,value)
-              VALUES(?,?,?) '''
-
-delete_measurements_q = ''' DELETE FROM metrics WHERE name = ? '''
-
-list_models_q = ''' SELECT DISTINCT name FROM metrics '''
-get_model_q = ''' SELECT 
-                    yearly_seasonality,
-                    weekly_seasonality,
-                    daily_seasonality,
-                    custom_seasonality_period,
-                    custom_seasonality_fourier_order,
-                    seasonality_mode 
-                FROM models WHERE name = ? '''
-
-upsert_model_q = '''INSERT INTO models(
-                                    name,
-                                    yearly_seasonality,
-                                    weekly_seasonality,
-                                    daily_seasonality,
-                                    custom_seasonality_period,
-                                    custom_seasonality_fourier_order,
-                                    seasonality_mode
-                                ) VALUES(?,?,?,?,?,?,?)
-                    ON CONFLICT(name) DO
-                    UPDATE SET
-                        yearly_seasonality=excluded.yearly_seasonality,
-                        weekly_seasonality=excluded.weekly_seasonality,
-                        daily_seasonality=excluded.daily_seasonality,
-                        custom_seasonality_period=excluded.custom_seasonality_period,
-                        custom_seasonality_fourier_order=excluded.custom_seasonality_fourier_order,
-                        seasonality_mode=excluded.seasonality_mode
-                    WHERE name = excluded.name'''
-
-# select_measurements = ''' SELECT * FROM metrics WHERE name = (?) '''
-
-drop_tables_q = [ 
-    """DROP TABLE IF EXISTS metrics;""",
-    """DROP INDEX IF EXISTS ux_measurement;""",
-    """DROP TABLE IF EXISTS models;""",
-]
-
-create_tables_q = [ 
-    """CREATE TABLE IF NOT EXISTS metrics (
-            timestamp DATE NOT NULL,
-            name TEXT NOT NULL,
-            value REAL NOT NULL
-        );""",
-    """CREATE UNIQUE INDEX IF NOT EXISTS ux_measurement ON metrics(name,timestamp);""",
-    # https://github.com/facebook/prophet/blob/v1.1.7/python/prophet/forecaster.py#L33-L83
-    """CREATE TABLE IF NOT EXISTS models (
-            name TEXT PRIMARY KEY,
-            yearly_seasonality TEXT NOT NULL DEFAULT 'False',
-            weekly_seasonality TEXT NOT NULL DEFAULT 'auto',
-            daily_seasonality TEXT NOT NULL DEFAULT 'auto',
-            custom_seasonality_period REAL NOT NULL,
-            custom_seasonality_fourier_order INT NOT NULL,
-            seasonality_mode TEXT NOT NULL DEFAULT 'additive'
-        );"""
-]
 
 def retrain_and_save(model_name):
     with sqlite3.connect(db_file) as con:
@@ -164,12 +104,17 @@ def upsert_mod(m):
         cur = con.cursor()
         m_data = (
             m.name,
-            m.yearly_seasonality,
-            m.weekly_seasonality,
-            m.daily_seasonality,
-            m.custom_seasonality_period,
-            m.custom_seasonality_fourier_order,
-            m.seasonality_mode,
+            m.yearly_seasonality,                    # 0
+            m.weekly_seasonality,                    # 1
+            m.daily_seasonality,                     # 2
+            m.custom_seasonality_name,               # 3
+            m.custom_seasonality_period,             # 4
+            m.custom_seasonality_fourier_order,      # 5
+            m.seasonality_mode,                      # 6
+            m.holidays,                              # 7
+            m.holidays_prior_scale,                  # 8
+            m.changepoint_prior_scale,               # 9
+            m.default_horizon,                       # 10
         )
         print("Model update")
         print(m_data)
@@ -199,3 +144,7 @@ def delete(name):
 
 def insert_sample(cur, name, time, value):
     cur.execute(insert_measurement_q, (name, time, value))
+
+
+def get_default_horizon(model):
+    return get_model(model).default_horizon
