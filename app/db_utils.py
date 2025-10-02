@@ -4,9 +4,8 @@ logging.getLogger("prophet.plot").disabled = True
 import sqlite3
 import os
 import sys
-import csv
 from numpy import random
-from datetime import date,timedelta
+from datetime import date,datetime,timedelta,timezone
 from .model_utils import train_and_save, delete_serialized_model, parseModelParams
 from .db_schema import *
 
@@ -61,7 +60,7 @@ def make_jitter(val, jitter):
 
 def prepare_samples(cur, days, days_trend_factor, off_hours_factor, value_fun, jitter, model):
     counter=0
-    nDaysAgo = date.today() - timedelta(days)
+    nDaysAgo = datetime.now(timezone.utc) - timedelta(days)
     for day in range(1, days):
         for hour in range(0, 24):
             for min in range(0, 60, 5):
@@ -69,7 +68,7 @@ def prepare_samples(cur, days, days_trend_factor, off_hours_factor, value_fun, j
                 value = day * days_trend_factor + make_jitter(value_fun(hour, min), jitter)
                 value = value * (off_hours_factor if off_hours else 1)
                 datum = nDaysAgo + timedelta(day)
-                ts = f'{datum.year}-{datum.month:02}-{datum.day:02} {hour:02}:{min:02}:00.000'
+                ts = f'{datum.year}-{datum.month:02}-{datum.day:02} {hour:02}:{min:02}:00'
                 # print(f'day: {day}: {ts}')
                 insert_sample(cur, model, ts , value)
                 counter+=1
@@ -82,13 +81,24 @@ def insert_measurement(name, time, value):
         cur = con.cursor()
         insert_sample(cur, name, time, value)
 
-def insert_multiple_measurements(name, csvUrl, timestampColumnName, valueColumnName):
+def insert_multiple_measurements(name, csvUrl, timestampColumnName, valueColumnName, addTimestamps, timestampPeriod):
     data = pd.read_csv(csvUrl)
     print(f"fetching CSV from {csvUrl}")
     print("original CSV structure:")
     print(data)
-    print(f"\nrenaming '{timestampColumnName}' -> 'timestamp' and '{valueColumnName}' -> 'value'")
-    data = data.rename(columns={timestampColumnName: "timestamp", valueColumnName: "value"})
+
+    if addTimestamps:
+        print(f"\nrenaming '{valueColumnName}' -> 'value'")
+        data = data.rename(columns={valueColumnName: "value"})
+        end_time = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        timestamps = pd.date_range(end=end_time, freq=timestampPeriod, periods=data["value"].size)
+        data = data[["value"]].set_index(timestamps)
+        data.index.name = 'timestamp'
+        data = data.reset_index()
+    else:
+        print(f"\nrenaming '{timestampColumnName}' -> 'timestamp' and '{valueColumnName}' -> 'value'")
+        data = data.rename(columns={timestampColumnName: "timestamp", valueColumnName: "value"})
+        data["timestamp"] = pd.to_datetime(data.timestamp).dt.strftime("%Y-%m-%d %H:%M:%S")
     data["name"]=name
     print("data after column renaming:")
     print(data)

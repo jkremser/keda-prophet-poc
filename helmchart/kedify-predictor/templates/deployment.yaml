@@ -1,14 +1,14 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "keda-prophet.fullname" . }}
+  name: {{ include "kedify-predictor.fullname" . }}
   labels:
-    {{- include "keda-prophet.labels" . | nindent 4 }}
+    {{- include "kedify-predictor.labels" . | nindent 4 }}
 spec:
   replicas: {{ .Values.replicaCount }}
   selector:
     matchLabels:
-      {{- include "keda-prophet.selectorLabels" . | nindent 6 }}
+      {{- include "kedify-predictor.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       annotations:
@@ -17,7 +17,7 @@ spec:
         {{- toYaml . | nindent 8 }}
       {{- end }}
       labels:
-        {{- include "keda-prophet.labels" . | nindent 8 }}
+        {{- include "kedify-predictor.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -77,19 +77,19 @@ spec:
         {{- with .Values.extraContainers }}
           {{- tpl . $ | nindent 8 }}
         {{- end }}
-      {{- with .Values.volumes }}
       volumes:
+        {{- with .Values.volumes }}
         {{- toYaml . | nindent 8 }}
-      {{- end }}
-      {{- if .Values.kedaPredictionController.enabled }}
+        {{- end }}
+        {{- if .Values.kedaPredictionController.enabled }}
         - name: certs
           secret:
             defaultMode: 420
             secretName: kedaorg-certs
-      {{- end }}
+        {{- end }}
       
       {{- if .Values.kedaPredictionController.enabled }}
-      serviceAccount: {{ include "keda-prophet.fullname" . }}
+      serviceAccount: {{ include "kedify-predictor.fullname" . }}
       {{- end -}}
 
       {{- with .Values.nodeSelector }}

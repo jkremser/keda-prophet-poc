@@ -2,13 +2,10 @@
 
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import RedirectResponse, StreamingResponse
-import logging
-import os
 import traceback
 from pydantic import BaseModel
 from typing import List
-from datetime import datetime, timedelta
-import colorama
+from datetime import datetime
 from colorama import init as colorama_init
 from colorama import Fore
 from colorama import Style
@@ -16,12 +13,12 @@ from colorama import Style
 from .common_utils import to_bool
 from .model_utils import generate_forecast, generate_graph_bytes
 from .db_utils import *
+
 description = """
 KEDA Prophet - Exposing multiple Prophet models via REST api for KEDA. 🚀
 
 <img src="https://kedify.io/assets/images/logo.svg" alt="logo" width="100"/>
 """
-
 app = FastAPI(
     title="KEDA Prophet",
     description=description,
@@ -50,17 +47,19 @@ class MetricStoreRequest(BaseModel):
     value: float   # Measured value
 
 class MetricCsvStoreRequest(BaseModel):
-    csvUrl: str
-    timestampColumnName: str = "ds"
-    valueColumnName: str = "y"
+    csvUrl: str                          # url pointing to the CSV file
+    addTimestamps: bool | None = False   # should the timestamps be added based on the current time?
+    timestampPeriod: str | None = "15s"  # if addTimestamps is true, what should be the time delta between the two samples
+    timestampColumnName: str = "ds"      # name of the timestamp column (if present and not generated)
+    valueColumnName: str = "y"           # name of the column with the actual measurement value
 
 # Output schemas
 class ForecastPoint(BaseModel):
-    ds: str
-    yhat: float
-    yhat_lower: float
-    yhat_upper: float
-    confidence: float
+    ds: str              # timestamp
+    yhat: float          # recommended value
+    yhat_lower: float    # recommended value's lower estimate
+    yhat_upper: float    # recommended value's upper estimate
+    confidence: float    # confidence of the recommendation calculated as (yhat_upper - yhat_lower)/yhat_upper (example for positive values)
 
 class ForecastResponse(BaseModel):
     forecast: List[ForecastPoint]
@@ -69,7 +68,7 @@ class ForecastResponse(BaseModel):
 def docs_redirect():
     return RedirectResponse(url='/docs')
 
-@app.post("/models", description="Create or update Prophet model.")
+@app.post("/models", description="Create or update Prophet model.", summary="Create or update Prophet model.")
 @app.post("/models/", include_in_schema=False)
 @app.put("/models", include_in_schema=False)
 @app.put("/models/", include_in_schema=False)
@@ -81,7 +80,7 @@ def upsert_model(request: Model):
         print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
-@app.get("/models/{model}/predict", response_model=ForecastResponse, description="Asks for the future prediction of the model.")
+@app.get("/models/{model}/predict", response_model=ForecastResponse, summary="Returns the predicted value of the model.", description="Asks for the future prediction of the model.")
 def predict(model, horizon: str|None = None):
     try:
         if horizon is None:
@@ -93,7 +92,7 @@ def predict(model, horizon: str|None = None):
                 yhat=round(row.yhat, 2),
                 yhat_upper=round(row.yhat_upper, 2),
                 yhat_lower=round(row.yhat_lower, 2),
-                confidence=round(((row.yhat_upper-row.yhat_lower)/row.yhat_upper), 2)
+                confidence=round(0 if row.yhat_upper > 0 > row.yhat_lower else 1 - ((row.yhat_upper - row.yhat_lower) / row.yhat_upper if row.yhat_upper > 0 else -row.yhat_lower), 2)
             ) for row in forecast_df.itertuples()
         ]
         return {"forecast": response}
@@ -122,7 +121,7 @@ def feed_measurement(model, request: MetricStoreRequest):
 @app.post("/models/{model}/metricsCsv", description="Inserts multiple datapoints passed as external CSV file into internal database.")
 def feed_csv(model, request: MetricCsvStoreRequest):
     try:
-        inserted = insert_multiple_measurements(model, request.csvUrl, request.timestampColumnName, request.valueColumnName)
+        inserted = insert_multiple_measurements(model, request.csvUrl, request.timestampColumnName, request.valueColumnName, request.addTimestamps, request.timestampPeriod)
         return {"message": f"inserted {inserted} samples"}
     except Exception as e:
         print(traceback.format_exc())
@@ -199,6 +198,7 @@ def feed_test_data(model,days=14, daysTrendFactor=1.1, offHoursFactor=0, jitter=
 @app.get(
     "/models/{model}/graph",
     description="Returns png file representing the model and its prediction.",
+    summary="Returns the png file representing the model and its predictions.",
     responses={
         200: {
             "content": {"image/png": {}},
@@ -208,11 +208,11 @@ def feed_test_data(model,days=14, daysTrendFactor=1.1, offHoursFactor=0, jitter=
 def graph(model, legend = "F", trend = "F", uncertainty = "T", hoursAgo: int = 0, dataHoursAgo: int = 0, freq: str = "10min", periods: int = 60):
     try:
         if hoursAgo > 0:
-            prediction_start_time = (datetime.today() - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
+            prediction_start_time = (datetime.now(timezone.utc) - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
         else:
-            prediction_start_time = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+            prediction_start_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         if dataHoursAgo > 0:
-            data_start_time = (datetime.today() - timedelta(hours=dataHoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
+            data_start_time = (datetime.now(timezone.utc) - timedelta(hours=dataHoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
         else:
             data_start_time = None
         image_bytes = generate_graph_bytes(
@@ -233,6 +233,7 @@ def graph(model, legend = "F", trend = "F", uncertainty = "T", hoursAgo: int = 0
 @app.get(
     "/models/{model}/graphComponents",
     description="Returns png file representing the model and its predictions. Predictions are decomposed into seasonalities graphs.",
+    summary="Graph seasonality components individually as png file.",
     responses={
         200: {
             "content": {"image/png": {}},
@@ -242,9 +243,9 @@ def graph(model, legend = "F", trend = "F", uncertainty = "T", hoursAgo: int = 0
 def graph_components(model, uncertainty = "1", hoursAgo: int = 0, freq: str = "10min", periods: int = 60):
     try:
         if hoursAgo > 0:
-            prediction_start_time = (datetime.today() - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
+            prediction_start_time = (datetime.now(timezone.utc) - timedelta(hours=hoursAgo)).strftime('%Y-%m-%d %H:%M:%S')
         else:
-            prediction_start_time = datetime.today().strftime('%Y-%m-%d %H:%M:%S')
+            prediction_start_time = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
         image_bytes = generate_graph_bytes(
             data_start_date=None,
             prediction_start_date = prediction_start_time,

@@ -1,17 +1,17 @@
 apiVersion: v1
 kind: Service
 metadata:
-  name: {{ include "keda-prophet.fullname" . }}
+  name: kedify-predictor
   labels:
-    {{- include "keda-prophet.labels" . | nindent 4 }}
+    {{- include "kedify-predictor.labels" . | nindent 4 }}
 spec:
   type: {{ .Values.service.type }}
   ports:
     - port: {{ .Values.service.port }}
-      targetPort: http
+      targetPort: {{ .Values.service.port }}
       {{- with .Values.service.nodePort }}
       nodePort: {{ . }}
       {{- end }}
       protocol: TCP
   selector:
-    {{- include "keda-prophet.selectorLabels" . | nindent 4 }}
+    {{- include "kedify-predictor.selectorLabels" . | nindent 4 }}

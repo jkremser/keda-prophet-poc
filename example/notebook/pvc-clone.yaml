@@ -1,0 +1,49 @@
+# this doesn't work on k3d - https://github.com/rancher/local-path-provisioner/issues/352
+#helm repo add jupyterhub https://hub.jupyter.org/helm-chart/
+#helm repo update jupyterhub
+#cat <<VALS | helm upgrade -i -nkeda explain jupyterhub/jupyterhub -f -
+#hub:
+#  extraVolumes:
+#    - name: sqlite
+#      persistentVolumeClaim:
+#        claimName: clone-of-db
+#    - name: models
+#      persistentVolumeClaim:
+#        claimName: clone-of-models
+#  extraVolumeMounts:
+#    - name: sqlite
+#      mountPath: /data
+#    - name: models
+#      mountPath: /models
+#VALS
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: clone-of-models
+    namespace: keda
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: cloning
+  resources:
+    requests:
+      storage: 500Mi
+  dataSource:
+    kind: PersistentVolumeClaim
+    name: prophet-models
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+    name: clone-of-db
+    namespace: keda
+spec:
+  accessModes:
+  - ReadWriteOnce
+  storageClassName: cloning
+  resources:
+    requests:
+      storage: 500Mi
+  dataSource:
+    kind: PersistentVolumeClaim
+    name: prophet-sqlite

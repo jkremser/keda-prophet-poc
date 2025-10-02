@@ -190,7 +190,7 @@ spec:
                           type: string
                       type: object
                     type:
-                      default: prophet
+                      default: Prophet
                       description: |-
                         What type of model predictor should be used, allowed values: prophet
                         default: prophet
@@ -224,15 +224,6 @@ spec:
                             - scaledjob
                             - scaledobject
                           type: string
-                        metricIndex:
-                          default: 0
-                          description: |-
-                            MetricIndex specifies the index of the metrics array returned from KEDA's raw metric stream.
-                            That selects the correct metric for the model. Most of the time the array contains just one element,
-                            however there might be KEDA scalers that returns two independent values.
-                            If all the values in the array should be used to feed the model, put -1 here.
-                            default: 0
-                          type: integer
                         name:
                           description: Name of the ScaledObject or ScaledJob located in the same namespace as this MetricPredictor resource
                           minLength: 1
@@ -258,11 +249,26 @@ spec:
                             When the CSV is imported, it will update the .status sub-resource and subsequent ingestion will not be made.
                             default: true
                           type: boolean
+                        addTimestamps:
+                          default: false
+                          description: |-
+                            When enabled, the timestamp column will be added to the CSV data even if not present. Use this option
+                            together with timestampPeriod to set up the correct timing.
+                            default: false
+                          type: boolean
                         timestampColumnName:
                           default: ds
                           description: |-
                             Name of column that contains timestamps in the referenced CSV file
                             default: 'ds'
+                          type: string
+                        timestampPeriod:
+                          default: 30s
+                          description: |-
+                            If addTimestamps is true, what should be the time delta between the two samples
+                            The timestamp will be calculated so that last data sample in the CSV file represents the time.now()
+                            and the very first one will have timestamp time.now() - number_of_samples*timestampPeriod
+                            default: '30s'
                           type: string
                         url:
                           description: |-

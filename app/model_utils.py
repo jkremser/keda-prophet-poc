@@ -78,12 +78,13 @@ def train_and_save(model_name, params, df):
     print(f"Training model {model_name} using following model params:")
     print(parsed_params)
     model = Prophet(
-        changepoint_prior_scale=parsed_params.changepoint_prior_scale,
         yearly_seasonality=parsed_params.yearly_seasonality,
         weekly_seasonality=parsed_params.weekly_seasonality,
         daily_seasonality=parsed_params.daily_seasonality,
         seasonality_mode=parsed_params.seasonality_mode,
     )
+    if parsed_params.changepoint_prior_scale is not None and parsed_params.changepoint_prior_scale > 0:
+        model.changepoint_prior_scale = parsed_params.changepoint_prior_scale
     if parsed_params.has_holidays:
         model.holidays_prior_scale = parsed_params.holidays_prior_scale
         model.add_country_holidays(parsed_params.country_holidays)
@@ -127,21 +128,25 @@ def parseModelParams(params):
     if params == None:
         print("using default params")
         return get_default_model_params()
-    return ModelParams(
+    mp = ModelParams(
         yearly_seasonality=parseSeasonality(params[0]),
         weekly_seasonality=parseSeasonality(params[1]),
         daily_seasonality=parseSeasonality(params[2]),
-        has_custom_seasonality=params[3] > 0 and params[4] > 0 and params[5] > 0,
-        custom_seasonality_name=params[3],
-        custom_seasonality_period=params[4],
-        custom_seasonality_fourier_order=params[5],
+        has_custom_seasonality=params[3] is not None and len(params[3]) > 0 and params[4] is not None and params[4] > 0 and params[5] is not None and params[5] > 0,
         seasonality_mode=params[6],
-        has_holidays=len(params[7]) > 0 and params[8] > 0,
-        holidays = params[7],
-        holidays_prior_scale = params[8],
-        changepoint_prior_scale = params[9],
+        has_holidays=params[7] is not None and len(params[7]) > 0 and params[8] is not None and params[8] > 0,
+        changepoint_prior_scale = 0 if params[9] is None else params[9],
         default_horizon = params[10],
     )
+    if mp.has_custom_seasonality:
+        mp.custom_seasonality_name=params[3]
+        mp.custom_seasonality_period=params[4]
+        mp.custom_seasonality_fourier_order=params[5]
+    if mp.has_holidays:
+        mp.holidays = params[7]
+        mp.holidays_prior_scale = params[8]
+
+    return mp
 
 def parseSeasonality(seasonality):
     match seasonality:
@@ -160,7 +165,14 @@ def get_default_model_params():
         yearly_seasonality=False,
         weekly_seasonality="auto",
         daily_seasonality="auto",
+        has_custom_seasonality=False,
+        custom_seasonality_name="",
+        custom_seasonality_period=0,
+        custom_seasonality_fourier_order=0,
         seasonality_mode="additive",
+        has_holidays=False,
+        holidays="",
+        holidays_prior_scale=0,
         changepoint_prior_scale=.1,
         default_horizon="2m",
     )

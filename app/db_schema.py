@@ -4,7 +4,7 @@ insert_measurement_q = ''' INSERT INTO metrics(name,timestamp,value)
 
 delete_measurements_q = ''' DELETE FROM metrics WHERE name = ? '''
 
-list_models_q = ''' SELECT DISTINCT name FROM metrics '''
+list_models_q = ''' SELECT DISTINCT name FROM metrics UNION SELECT name FROM models '''
 get_model_q = ''' SELECT 
                     yearly_seasonality,                   -- 0
                     weekly_seasonality,                   -- 1
@@ -32,7 +32,7 @@ upsert_model_q = '''INSERT INTO models(
                                     holidays_prior_scale,                  -- 8
                                     changepoint_prior_scale,               -- 9
                                     default_horizon                        -- 10
-                                ) VALUES(?,?,?,?,?,?,?,?,?,?)
+                                ) VALUES(?,?,?,?,?, ?,?,?,?,?, ?,?)
                     ON CONFLICT(name) DO
                     UPDATE SET
                         yearly_seasonality=excluded.yearly_seasonality,                                 -- 0
@@ -45,7 +45,7 @@ upsert_model_q = '''INSERT INTO models(
                         holidays=excluded.holidays,                                                     -- 7
                         holidays_prior_scale=excluded.holidays_prior_scale,                             -- 8
                         changepoint_prior_scale=excluded.changepoint_prior_scale,                       -- 9
-                        default_horizon=excluded.default_horizon,                                       -- 10
+                        default_horizon=excluded.default_horizon                                        -- 10
                     WHERE name = excluded.name'''
 
 # select_measurements = ''' SELECT * FROM metrics WHERE name = (?) '''
@@ -69,13 +69,13 @@ create_tables_q = [
             yearly_seasonality TEXT NOT NULL DEFAULT 'False',    -- 0
             weekly_seasonality TEXT NOT NULL DEFAULT 'auto',     -- 1
             daily_seasonality TEXT NOT NULL DEFAULT 'auto',      -- 2
-            custom_seasonality_name TEXT,                        -- 3
-            custom_seasonality_period REAL,                      -- 4
-            custom_seasonality_fourier_order INT,                -- 5
+            custom_seasonality_name TEXT DEFAULT '',             -- 3
+            custom_seasonality_period REAL DEFAULT 0,            -- 4
+            custom_seasonality_fourier_order INT DEFAULT 0,      -- 5
             seasonality_mode TEXT NOT NULL DEFAULT 'additive',   -- 6
-            holidays TEXT,                                       -- 7
-            holidays_prior_scale REAL,                           -- 8
-            changepoint_prior_scale REAL,                        -- 9
+            holidays TEXT DEFAULT '',                            -- 7
+            holidays_prior_scale REAL DEFAULT 0,                 -- 8
+            changepoint_prior_scale REAL DEFAULT 0,              -- 9
             default_horizon TEXT                                 -- 10
         );"""
 ]

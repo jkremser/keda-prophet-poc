@@ -1,14 +1,14 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: {{ include "keda-prophet.fullname" . }}
+  name: {{ include "kedify-predictor.fullname" . }}
   namespace: {{ .Release.Namespace }}
 ---
 # permissions to do the controller stuff.
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: {{ include "keda-prophet.fullname" . }}-manager-role
+  name: {{ include "kedify-predictor.fullname" . }}-manager-role
 rules:
 - apiGroups:
   - ""
@@ -48,7 +48,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
 metadata:
-  name: {{ include "keda-prophet.fullname" . }}-leader-election-role
+  name: {{ include "kedify-predictor.fullname" . }}-leader-election-role
   namespace: {{ .Release.Namespace }}
 rules:
 - apiGroups:
@@ -86,26 +86,26 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
 metadata:
-  name: {{ include "keda-prophet.fullname" . }}-leader-election-rolebinding
+  name: {{ include "kedify-predictor.fullname" . }}-leader-election-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: {{ include "keda-prophet.fullname" . }}-leader-election-role
+  name: {{ include "kedify-predictor.fullname" . }}-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: {{ include "keda-prophet.fullname" . }}
+  name: {{ include "kedify-predictor.fullname" . }}
   namespace: {{ .Release.Namespace }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: {{ include "keda-prophet.fullname" . }}-manager-rolebinding
+  name: {{ include "kedify-predictor.fullname" . }}-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: {{ include "keda-prophet.fullname" . }}-manager-role
+  name: {{ include "kedify-predictor.fullname" . }}-manager-role
 subjects:
 - kind: ServiceAccount
-  name: {{ include "keda-prophet.fullname" . }}
+  name: {{ include "kedify-predictor.fullname" . }}
   namespace: {{ .Release.Namespace }}
 ---
