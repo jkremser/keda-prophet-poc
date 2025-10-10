@@ -3,6 +3,8 @@
 from fastapi import FastAPI, HTTPException, Response
 from fastapi.responses import RedirectResponse, StreamingResponse
 import traceback
+import sys
+import platform
 from pydantic import BaseModel
 from typing import List
 from datetime import datetime
@@ -287,6 +289,8 @@ def init():
     logger.info("-------------------------------")
     logger.info(f"Version: {os.getenv("VERSION", "main")}")
     logger.info(f"Git Sha: {os.getenv("GIT_SHA", "main")}")
+    logger.info(f"Python Version: {sys.version}")
+    logger.info(f"Python OS/Arch: {platform.system()}/{platform.machine()}")
     logger.info("-------------------------------")
     logger.info(f"{Fore.BLUE}    ▖▖▄▖▄ ▄▖{Fore.WHITE}  ▄▖      ▌   ▗ {Style.RESET_ALL}")
     logger.info(f"{Fore.BLUE}    ▙▘▙▖▌▌▌▌{Fore.WHITE}  ▙▌▛▘▛▌▛▌▛▌█▌▜▘{Style.RESET_ALL}")
